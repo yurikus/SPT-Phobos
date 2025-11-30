@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Phobos.Diag;
 using Phobos.ECS.Entities;
 using Phobos.ECS.Systems;
 using Phobos.Navigation;
@@ -16,8 +17,11 @@ public class SystemOrchestrator : IActorSystem
 
     public SystemOrchestrator(NavJobExecutor navJobExecutor, ObjectiveQueue objectiveQueue)
     {
+        DebugLog.Write("Creating MovementSystem");
         MovementSystem = new MovementSystem(navJobExecutor);
+        DebugLog.Write("Creating ActorTaskSystem");
         ActorTaskSystem = new ActorTaskSystem(MovementSystem);
+        DebugLog.Write("Creating SquadOrchestrator");
         SquadOrchestrator = new SquadOrchestrator(ActorTaskSystem, objectiveQueue);
 
         _systems = [MovementSystem, ActorTaskSystem, SquadOrchestrator];

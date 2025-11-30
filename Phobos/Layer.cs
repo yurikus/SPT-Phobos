@@ -43,6 +43,7 @@ public class PhobosLayer : CustomLayer
         
         // Have to turn this off otherwise bots will be deactivated far away.
         botOwner.StandBy.CanDoStandBy = false;
+        botOwner.StandBy.Activate();
         
         // TODO: Expand this into the suspended detection system
         botOwner.Brain.BaseBrain.OnLayerChangedTo += layer => Plugin.Log.LogInfo("Layer changed to " + layer.Name());

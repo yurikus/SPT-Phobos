@@ -12,7 +12,7 @@ namespace Phobos.Objectives;
 public class ObjectiveQueue
 {
     private readonly Queue<Objective> _queue;
-    private readonly HashSet<ValueTuple<LocationCategory, string>> _dupeCheck = new ();
+    private readonly HashSet<Objective> _dupeCheck = new ();
 
     public ObjectiveQueue()
     {
@@ -49,8 +49,7 @@ public class ObjectiveQueue
             if (trigger.transform == null)
                 continue;
 
-            var objectiveId = (LocationCategory.Quest, trigger.name);
-            AddValid(collection, objectiveId, trigger.transform.position);
+            AddValid(collection, LocationCategory.Quest, trigger.name, trigger.transform.position);
         }
         
         foreach (var container in Object.FindObjectsOfType<LootableContainer>())
@@ -58,8 +57,7 @@ public class ObjectiveQueue
             if (container.transform == null || !container.enabled || container.Template == null)
                 continue;
             
-            var objectiveId = (LocationCategory.ContainerLoot, container.name);
-            AddValid(collection, objectiveId, container.transform.position);
+            AddValid(collection, LocationCategory.ContainerLoot, container.name, container.transform.position);
         }
         
         DebugLog.Write($"Collected {collection.Count} points of interest");
@@ -67,22 +65,23 @@ public class ObjectiveQueue
         return collection;
     }
 
-    private void AddValid(List<Objective> collection, ValueTuple<LocationCategory, string> id, Vector3 position)
+    private void AddValid(List<Objective> collection, LocationCategory category, string name, Vector3 position)
     {
-        if (!_dupeCheck.Add(id))
+        if (NavMesh.SamplePosition(position, out var target, 5f, NavMesh.AllAreas))
         {
-            DebugLog.Write($"Objective {id} skipped as duplicate");
-            return;
-        }
-        
-        if (NavMesh.SamplePosition(position, out var target, 10, NavMesh.AllAreas))
-        {
-            collection.Add(new Objective(id, target.position));
-            DebugLog.Write($"Objective {id} added as location");
+            var objective = new Objective(category, name, target.position);
+            
+            if (!_dupeCheck.Add(objective))
+            {
+                DebugLog.Write($"{objective} skipped as duplicate");
+                return;
+            }
+            collection.Add(objective);
+            DebugLog.Write($"{objective} added as location");
         }
         else
         {
-            DebugLog.Write($"Objective {id} too far from navmesh");
+            DebugLog.Write($"Objective({category}, {name}, {position}) too far from navmesh");
         }
     }
 }

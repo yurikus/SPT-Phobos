@@ -4,9 +4,9 @@ using UnityEngine.AI;
 
 namespace Phobos.Navigation;
 
-public class NavJob(Vector3 target, Vector3 origin)
+public class NavJob(Vector3 destination, Vector3 origin)
 {
-    public readonly Vector3 Target = target;
+    public readonly Vector3 Destination = destination;
     public readonly Vector3 Origin = origin;
     public NavMeshPathStatus Status = NavMeshPathStatus.PathInvalid;
     public Vector3[] Corners;
@@ -40,7 +40,7 @@ public class NavJobExecutor(int batchSize = 5)
         {
             var job = _jobQueue.Dequeue();
             var path = new NavMeshPath();
-            NavMesh.CalculatePath(job.Origin, job.Target, NavMesh.AllAreas, path);
+            NavMesh.CalculatePath(job.Origin, job.Destination, NavMesh.AllAreas, path);
             job.Corners = path.corners;
             job.Status = path.status;
             counter++;

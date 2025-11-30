@@ -11,21 +11,22 @@ public enum LocationCategory
     Exfil
 }
 
-public class Objective(ValueTuple<LocationCategory, string> id, Vector3 position) : IEquatable<Objective>
+public class Objective(LocationCategory category, string name, Vector3 position) : IEquatable<Objective>
 {
-    private readonly ValueTuple<LocationCategory, string> _id = id;
+    public readonly LocationCategory Category = category;
+    public readonly string Name = name;
     public readonly Vector3 Position = position;
 
     public override string ToString()
     {
-        return $"Location({_id})";
+        return $"Objective({Category}, {Name}, {Position})";
     }
 
     public bool Equals(Objective other)
     {
         if (other is null) return false;
         if (ReferenceEquals(this, other)) return true;
-        return _id == other._id;
+        return Category == other.Category && Name == other.Name && Position.Equals(other.Position);
     }
 
     public override bool Equals(object obj)
@@ -37,6 +38,6 @@ public class Objective(ValueTuple<LocationCategory, string> id, Vector3 position
 
     public override int GetHashCode()
     {
-        return _id.GetHashCode();
+        return HashCode.Combine((int)Category, Name, Position);
     }
 }

@@ -7,6 +7,6 @@ public static class DebugLog
     [Conditional("DEBUG")]
     public static void Write(string message)
     {
-        Plugin.Log.LogDebug(message);
+        Plugin.Log.LogInfo(message);
     }
 }

@@ -2,7 +2,6 @@
 using Comfort.Common;
 using EFT;
 using Phobos.ECS;
-using Phobos.ECS.Systems;
 using Phobos.Navigation;
 using Phobos.Objectives;
 using SPT.Reflection.Patching;

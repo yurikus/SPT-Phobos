@@ -18,7 +18,8 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
     public void MoveTo(Actor actor, Vector3 destination)
     {
         // Queues up a pathfinding job, once that's ready, moves the bot to that path.
-        var job = navJobExecutor.Submit(actor.Bot.Position, destination);
+        NavMesh.SamplePosition(actor.Bot.Position, out var origin, 5f, NavMesh.AllAreas);
+        var job = navJobExecutor.Submit(origin.position, destination);
         _pathJobs.Enqueue((actor, job));
     }
 
@@ -44,7 +45,7 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
                 if (!actor.IsActive || job.Status == NavMeshPathStatus.PathInvalid)
                     continue;
                 
-                EmbarkMovement(actor, job);
+                StartMovement(actor, job);
             }
         }
 
@@ -60,13 +61,16 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
         }
     }
     
-    private static void EmbarkMovement(Actor actor, NavJob job)
+    private static void StartMovement(Actor actor, NavJob job)
     {
         var routing = actor.Routing;
         routing.Set(job);
-        actor.Bot.Mover.GoToByWay(routing.Path.Corners, 1);
+        actor.Bot.Mover.GoToByWay(routing.Path.Corners, 0);
+        actor.Bot.SetPose(1f);
+        actor.Bot.BotLay.GetUp(true);
         
         // Debug
+        DebugLog.Write($"Starting movement to {routing} curpath: {actor.Bot.Mover.ActualPathController.CurPath?.Length}");
         PathVis.Show(routing.Path.Corners, thickness: 0.1f);
     }
     
