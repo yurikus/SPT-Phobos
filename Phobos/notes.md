@@ -1,5 +1,6 @@
 ﻿# TODO:
 * Add a mechanism to the objective system to resubmit the objective if the actor is reactivated
+* Add pathing status tracking to the movement system, so we keep track of where we are on the path
 * Add stamina system to the movement and sprinting
 * Add simplistic door handling where the bot auto-opens nearby doors and stops sprinting if there's a door within 5 meters
 

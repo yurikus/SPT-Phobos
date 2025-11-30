@@ -4,12 +4,12 @@ using Phobos.ECS.Components;
 
 namespace Phobos.ECS.Entities;
 
-public class Actor(int id, int squadId, BotOwner bot) : IEquatable<Actor>
+public class Actor(BotOwner bot) : IEquatable<Actor>
 {
     public bool Suspended;
     public bool Paused;
     
-    public readonly int SquadId = squadId;
+    public readonly int SquadId = bot.BotsGroup.Id;
     public readonly BotOwner Bot = bot;
     
     public readonly Objective Objective = new();
@@ -17,7 +17,7 @@ public class Actor(int id, int squadId, BotOwner bot) : IEquatable<Actor>
     
     public bool IsActive => !Suspended && !Paused;
     
-    private readonly int _id = id;
+    private readonly int _id = bot.Id;
 
     public bool Equals(Actor other)
     {

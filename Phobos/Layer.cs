@@ -4,6 +4,7 @@ using Comfort.Common;
 using DrakiaXYZ.BigBrain.Brains;
 using EFT;
 using Phobos.ECS;
+using Phobos.ECS.Entities;
 using Phobos.ECS.Systems;
 using UnityEngine;
 
@@ -29,19 +30,17 @@ public class PhobosLayer : CustomLayer
     public const string LayerName = "PhobosLayer";
 
     private readonly SystemOrchestrator _systemOrchestrator;
+    private readonly Actor _actor;
     
     public PhobosLayer(BotOwner botOwner, int priority) : base(botOwner, priority)
     {
-        Id = botOwner.Id;
-        SquadId = botOwner.BotsGroup.Id;
-
         _systemOrchestrator = Singleton<SystemOrchestrator>.Instance;
+        _actor = new Actor(botOwner);
         
-        
-
         // Have to turn this off otherwise bots will be deactivated far away.
         botOwner.StandBy.CanDoStandBy = false;
         
+        // TODO: Expand this into the suspended detection system
         botOwner.Brain.BaseBrain.OnLayerChangedTo += layer => Plugin.Log.LogInfo("Layer changed to " + layer.Name());
     }
     
@@ -52,13 +51,13 @@ public class PhobosLayer : CustomLayer
 
     public override void Start()
     {
-        
+        _systemOrchestrator.AddActor(_actor);
     }
     
     public override void Stop()
     {
         // We died/exfilled/etc.
-        _systemOrchestrator.RemoveActor(this);
+        _systemOrchestrator.RemoveActor(_actor);
     }
 
 
@@ -105,31 +104,14 @@ public class PhobosLayer : CustomLayer
         return false;
     }
 
-    // public override void BuildDebugText(StringBuilder sb)
-    // {
-    //     sb.AppendLine($"Squad {SquadId}, Size: {_squad.Count}");
-    //     sb.AppendLine($"Squad Objective: {_squad.Objective?.Category} | {_squad.Objective?.Name}");
-    //     sb.AppendLine($"Mover ismoving: {BotOwner.Mover.IsMoving} iscometo: {BotOwner.Mover.IsComeTo(1f, false)}");
-    //     sb.AppendLine($"Standby: {BotOwner.StandBy.StandByType} candostandby: {BotOwner.StandBy.CanDoStandBy}");
-    //     sb.AppendLine(
-    //         $"CurPath: {BotOwner.Mover.ActualPathController.CurPath} progress {BotOwner.Mover.ActualPathController.CurPath?.CurIndex}/{BotOwner.Mover.ActualPathController.CurPath?.Length}"
-    //     );
-    // }
-
-    public void PauseDuration(float duration)
+    public override void BuildDebugText(StringBuilder sb)
     {
-        _paused = true;
-        _pauseTimer = Time.time + duration;
-    }
-
-    public void PauseUntil(float timer)
-    {
-        _paused = true;
-        _pauseTimer = timer;
-    }
-
-    public void Resume()
-    {
-        _paused = false;
+        sb.AppendLine($"{_actor}, active: {_actor.IsActive}, paused: {_actor.Paused}, suspended: {_actor.Suspended}");
+        sb.AppendLine($"{_actor.Objective}");
+        sb.AppendLine($"{_actor.Routing}");
+        sb.AppendLine($"Standby: {BotOwner.StandBy.StandByType} candostandby: {BotOwner.StandBy.CanDoStandBy}");
+        sb.AppendLine(
+            $"CurPath: {BotOwner.Mover.ActualPathController.CurPath} progress {BotOwner.Mover.ActualPathController.CurPath?.CurIndex}/{BotOwner.Mover.ActualPathController.CurPath?.Length}"
+        );
     }
 }

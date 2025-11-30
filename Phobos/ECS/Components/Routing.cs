@@ -13,4 +13,9 @@ public class Routing
         Path.Set(job);
         Status = job.Status;
     }
+
+    public override string ToString()
+    {
+        return $"Routing(corners: {Path.Corners.Length}, status: {Status})";
+    }
 }
