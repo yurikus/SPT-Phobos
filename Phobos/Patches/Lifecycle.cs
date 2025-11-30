@@ -1,9 +1,10 @@
 ﻿using System.Reflection;
 using Comfort.Common;
 using EFT;
+using Phobos.ECS;
 using Phobos.ECS.Systems;
+using Phobos.Navigation;
 using Phobos.Objectives;
-using Phobos.Strategy;
 using SPT.Reflection.Patching;
 
 namespace Phobos.Patches;
@@ -25,8 +26,18 @@ public class PhobosInitPatch : ModulePatch
             return;
         }
 
-        var objectives = Location.Collect();
-        Singleton<SquadManager>.Create(new SquadManager(objectives));
+        // Services
+        var navJobExecutor = new NavJobExecutor();
+        var objectiveQueue = new ObjectiveQueue();
+        
+        // Systems
+        var systemOrchestrator = new SystemOrchestrator(navJobExecutor, objectiveQueue);
+        Singleton<SystemOrchestrator>.Create(systemOrchestrator);
+
+        // Updater
+        var updater = __instance.gameObject.AddComponent<Updater>();
+        updater.SystemOrchestrator = systemOrchestrator;
+        updater.NavJobExecutor = navJobExecutor;
     }
 }
 
@@ -42,7 +53,7 @@ public class PhobosDisposePatch : ModulePatch
     public static void Prefix()
     {
         Plugin.Log.LogInfo("Disposing of static & long lived objects.");
-        Singleton<SquadManager>.Release(Singleton<SquadManager>.Instance);
+        Singleton<SystemOrchestrator>.Release(Singleton<SystemOrchestrator>.Instance);
         Plugin.Log.LogInfo("Disposing complete.");
     }
 }

@@ -1,15 +1,11 @@
-﻿# High Level Plan
+﻿# TODO:
+* Add a mechanism to the objective system to resubmit the objective if the actor is reactivated
+* Add stamina system to the movement and sprinting
+* Add simplistic door handling where the bot auto-opens nearby doors and stops sprinting if there's a door within 5 meters
+
+# High Level Plan
 1. First PoC with basic squad level goal planning
 2. Holistic strategic squad AI using GOAP for immersive bot behavior (buzzword bingo)
-
-# PoC
-1. On spawn, Actor takes the current objective from the squad
-2. On Update
-   1. If objective is null, we bail out.
-   2. If objective is not-null and 
-
-## Main Layer Logic
-1. Check if bot is nonnull and alive, if not drop from the squad and disable the layer itself.
 
 # End Goals (add ideas over time)
 ## Gameplay
@@ -27,10 +23,11 @@
 * Exfil (after enough other objectives have been accomplished or got hurt too much)
 * Regroup (if a team member is under attack or the team got spread out too much)
 
-## Infra
-* Add job queues for various operations like pathfinding. We'll only do X number of these per frame to smooth out exec.
-
 # Notes
+## Doors
+* Initial door logic will be to put all doors in a grid, we then look up nearby doors on every frame and doors which are closer than 3m we open
+* We also slow down movement whenever in 5m vicinity of doors to avoid glitching into them.
+
 ## Pathing Logic
 * Run one iteration of the pathing. If it's not invalid, we run with it.
 * As the bot nears the final corner (we can check the current corner progress in the controller) we check if the path was partial. If yes, we invalidate the path and it again and observe if it got us closer to the destination.
@@ -47,12 +44,10 @@ NB: This can't be done from the layer itself since it doesn't run if it's not be
 `LocationScene` and `Location` contain some pointers on how to get stuff and what stuff is available.
 
 ## Pathing
-PathControllerClass.SetPath() can be most likely used to set an already precalculated path.
-
-So the group operation is this:
-
-1. Calculate one squad wide path plan at the start of the round from the current spawn to a number of objectives and finally to the exfil. This will be main strategic path.
-2. Tactically we'll then just make sure that the bots follow this path and regroup at the nearest waypoint after interruptions.
-
-
-
+### New squad objective
+1. Assign new target to the routing
+2. Submit to the PathfinderSystem
+3. Once finished the PathfinderSystem pushes back to the 
+### Bot was sidetracked
+1. Submit path for recalculation with unchanged target
+2. Notify bot that the path changed and the moving logic needs to be run
