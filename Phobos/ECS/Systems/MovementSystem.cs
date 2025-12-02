@@ -94,7 +94,6 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
 
         var lookPoint = CalculateForwardPointOnPath(routing.ActualPath.Vector3_0, bot.Position, routing.ActualPath.CurIndex) + 1.5f * Vector3.up;
         bot.Steering.LookToPoint(lookPoint, 520);
-        DebugGizmos.Line(bot.Fireport.position, lookPoint, Color.blue);
     }
 
     private static bool ShouldSprint(Actor actor)
@@ -111,38 +110,17 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
         return isOutside && isAbleToSprint && isPathSmooth && isFarFromDestination;
     }
 
-    private static Vector3 CalculateAverageForwardPosition(Vector3[] path, int startIndex = 0, int count = 2)
+    private static Vector3 CalculateForwardPointOnPath(Vector3[] corners, Vector3 position, int cornerIndex, float lookAheadDistanceSqr = 4f)
     {
-        // Clamp count to available corners
-        count = Mathf.Min(count, path.Length - startIndex - 1);
-
-        // If we have no points remaining to average over, just return the last index
-        if (count <= 0)
-            return path[^1];
-
-        var posAvg = Vector3.zero;
-
-        // Calculate angles between consecutive segments
-        for (var i = startIndex; i < startIndex + count; i++)
-        {
-            posAvg += path[i];
-        }
-
-        return posAvg / count;
-    }
-
-    private static Vector3 CalculateForwardPointOnPath(Vector3[] corners, Vector3 currentPosition, int nextCornerIndex,
-        float lookAheadDistanceSqr = 25f)
-    {
-        if (nextCornerIndex >= corners.Length)
-            return currentPosition;
+        if (cornerIndex >= corners.Length)
+            return position;
 
         // Track squared distance remaining
         var remainingDistanceSqr = lookAheadDistanceSqr;
         // Start from bot's current position
-        var currentPoint = currentPosition;
+        var currentPoint = position;
         // Start checking from the next corner
-        var currentIndex = nextCornerIndex;
+        var currentIndex = cornerIndex;
 
         while (remainingDistanceSqr > 0 && currentIndex < corners.Length)
         {
