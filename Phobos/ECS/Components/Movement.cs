@@ -8,7 +8,6 @@ public enum MovementStatus
 {
     Suspended,
     Active,
-    Retry,
     Completed,
     Failed
 }
@@ -24,6 +23,7 @@ public class Movement(BotOwner bot)
 {
     public MovementStatus Status = MovementStatus.Suspended;
     public Target Target;
+    public int Retry = 0;
     public BotCurrentPathAbstractClass ActualPath => bot.Mover.ActualPathController.CurPath;
 
     public void Set(NavJob job)
@@ -36,6 +36,6 @@ public class Movement(BotOwner bot)
     public override string ToString()
     {
         return
-            $"Movement(HasTarget: {Target != null} DistanceSqr: {Target?.DistanceSqr}, Status: {Status} Path: {ActualPath?.CurIndex}/{ActualPath?.Length})";
+            $"Movement(HasTarget: {Target != null} Try: {Retry} DistanceSqr: {Target?.DistanceSqr}, Status: {Status} Path: {ActualPath?.CurIndex}/{ActualPath?.Length})";
     }
 }

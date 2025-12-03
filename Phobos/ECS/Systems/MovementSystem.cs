@@ -11,30 +11,28 @@ namespace Phobos.ECS.Systems;
 
 public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
 {
-    private const float DistanceEpsSqr = 5f * 5f;
+    private const int RetryLimit = 3;
 
-    private readonly Queue<ValueTuple<Actor, NavJob>> _pathJobs = new(20);
+    // If we are further than this from a corner, allow the bot to sprint even if there are sharp turns later.
+    private const float SprintCancelPathCornerDistanceSqr = 10f * 10f;
+    private const float TargetReachedDistanceSqr = 5f * 5f;
+    private const float TargetVicinityDistanceSqr = 25f * 25f;
+    private const float LookAheadDistanceSqr = 1.5f;
 
-    public void MoveTo(Actor actor, Vector3 destination)
-    {
-        // Queues up a pathfinding job, once that's ready, moves the bot to that path.
-        NavMesh.SamplePosition(actor.Bot.Position, out var origin, 5f, NavMesh.AllAreas);
-        var job = navJobExecutor.Submit(origin.position, destination);
-        _pathJobs.Enqueue((actor, job));
-    }
+    private readonly Queue<ValueTuple<Actor, NavJob>> _moveJobs = new(20);
 
     public void Update()
     {
-        if (_pathJobs.Count > 0)
+        if (_moveJobs.Count > 0)
         {
-            for (var i = 0; i < _pathJobs.Count; i++)
+            for (var i = 0; i < _moveJobs.Count; i++)
             {
-                var (actor, job) = _pathJobs.Dequeue();
+                var (actor, job) = _moveJobs.Dequeue();
 
                 // If the job is not ready, re-enqueue and skip to the next
                 if (!job.IsReady)
                 {
-                    _pathJobs.Enqueue((actor, job));
+                    _moveJobs.Enqueue((actor, job));
                     continue;
                 }
 
@@ -58,9 +56,39 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
         }
     }
 
+    public void MoveToDestination(Actor actor, Vector3 destination)
+    {
+        ScheduleMoveJob(actor, destination);
+        actor.Movement.Retry = 0;
+    }
+
+    private void MoveRetry(Actor actor)
+    {
+        ScheduleMoveJob(actor, actor.Movement.Target.Position);
+        actor.Movement.Retry++;
+    }
+
+    private void ScheduleMoveJob(Actor actor, Vector3 destination)
+    {
+        // Queues up a pathfinding job, once that's ready, we move the bot along the path.
+        NavMesh.SamplePosition(actor.Bot.Position, out var origin, 5f, NavMesh.AllAreas);
+        var job = navJobExecutor.Submit(origin.position, destination);
+        _moveJobs.Enqueue((actor, job));
+        actor.Movement.Status = MovementStatus.Suspended;
+    }
+
     private static void StartMovement(Actor actor, NavJob job)
     {
+        if (job.Status == NavMeshPathStatus.PathInvalid)
+        {
+            actor.Movement.Target = null;
+            actor.Movement.Status = MovementStatus.Failed;
+            return;
+        }
+
         actor.Movement.Set(job);
+        actor.Movement.Status = MovementStatus.Active;
+
         actor.Bot.Mover.GoToByWay(job.Path, 2);
         actor.Bot.Mover.ActualPathFinder.SlowAtTheEnd = true;
 
@@ -68,19 +96,52 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
         PathVis.Show(job.Path, thickness: 0.1f);
     }
 
-    private static void UpdateMovement(Actor actor)
+    private void UpdateMovement(Actor actor)
     {
         var bot = actor.Bot;
         var movement = actor.Movement;
 
-        // Skip bots with no current pathing
-        if (movement.ActualPath == null || movement.Target == null)
+        if (movement.Status is MovementStatus.Failed or MovementStatus.Suspended)
             return;
+
+        // Failsafe
+        if (movement.Target == null)
+        {
+            movement.Status = MovementStatus.Suspended;
+            Plugin.Log.LogError($"Null target for {actor} even though the status is {movement.Status}");
+            return;
+        }
 
         movement.Target.DistanceSqr = (movement.Target.Position - bot.Position).sqrMagnitude;
 
-        if (movement.Target.DistanceSqr < DistanceEpsSqr)
+        // Handle the case where we aren't following a path for some reason. The usual reasons are:
+        // 1. The path was partial, and we arrived at the end
+        // 2. We arrived at the destination.
+        if (movement.ActualPath == null)
+        {
+            // If we arrived at the destination and have no active path, we are done
+            if (movement.Status == MovementStatus.Completed)
+            {
+                return;
+            }
+
+            // Otherwise try to find a new path.
+            if (movement.Retry < RetryLimit)
+            {
+                MoveRetry(actor);
+            }
+            else
+            {
+                movement.Status = MovementStatus.Failed;
+            }
+
+            return;
+        }
+
+        if (movement.Target.DistanceSqr < TargetReachedDistanceSqr)
+        {
             movement.Status = MovementStatus.Completed;
+        }
 
         // We'll enforce these whenever the bot is under way
         bot.SetPose(1f);
@@ -99,24 +160,25 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
     private static bool ShouldSprint(Actor actor)
     {
         var bot = actor.Bot;
-        var isFarFromDestination = actor.Movement.Target.DistanceSqr > DistanceEpsSqr;
+        var isFarFromDestination = actor.Movement.Target.DistanceSqr > TargetVicinityDistanceSqr;
         var isOutside = bot.AIData.EnvironmentId == 0;
         var isAbleToSprint = !bot.Mover.NoSprint && bot.GetPlayer.MovementContext.CanSprint;
         var isPathSmooth = CalculatePathAngleJitter(
-            bot.Mover.ActualPathController.CurPath.Vector3_0,
-            bot.Mover.ActualPathController.CurPath.CurIndex
+            bot.Position,
+            actor.Movement.ActualPath.Vector3_0,
+            actor.Movement.ActualPath.CurIndex
         ) < 15f;
 
         return isOutside && isAbleToSprint && isPathSmooth && isFarFromDestination;
     }
 
-    private static Vector3 CalculateForwardPointOnPath(Vector3[] corners, Vector3 position, int cornerIndex, float lookAheadDistanceSqr = 4f)
+    private static Vector3 CalculateForwardPointOnPath(Vector3[] corners, Vector3 position, int cornerIndex)
     {
         if (cornerIndex >= corners.Length)
             return position;
 
         // Track squared distance remaining
-        var remainingDistanceSqr = lookAheadDistanceSqr;
+        var remainingDistanceSqr = LookAheadDistanceSqr;
         // Start from bot's current position
         var currentPoint = position;
         // Start checking from the next corner
@@ -148,9 +210,8 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
         // We've run out of path - return the final corner as the furthest point
         return corners[^1];
     }
-
-
-    private static float CalculatePathAngleJitter(Vector3[] path, int startIndex = 0, int count = 3)
+    
+    private static float CalculatePathAngleJitter(Vector3 position, Vector3[] path, int startIndex = 0, int count = 2)
     {
         // Clamp count to available corners
         count = Mathf.Min(count, path.Length - startIndex - 2);
@@ -158,6 +219,12 @@ public class MovementSystem(NavJobExecutor navJobExecutor) : BaseActorSystem
         if (count <= 0)
             return 0f;
 
+        // Bail out if we are far from the next point
+        if ((path[startIndex] - position).sqrMagnitude > SprintCancelPathCornerDistanceSqr)
+        {
+            return 0f;
+        }
+        
         var angleMax = 0f;
 
         // Calculate angles between consecutive segments

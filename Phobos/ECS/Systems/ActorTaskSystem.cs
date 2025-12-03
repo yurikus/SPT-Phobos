@@ -9,7 +9,7 @@ public class ActorTaskSystem(MovementSystem movementSystem) : BaseActorSystem
     public void AssignObjective(Actor actor, Objective objective)
     {
         actor.Task.Assign(objective);
-        movementSystem.MoveTo(actor, objective.Position);
+        movementSystem.MoveToDestination(actor, objective.Position);
         DebugLog.Write($"Assigned {objective} to {actor}");
     }
 
