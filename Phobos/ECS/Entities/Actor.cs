@@ -15,7 +15,6 @@ public class Actor(BotOwner bot) : IEquatable<Actor>
     public readonly int SquadId = bot.BotsGroup.Id;
     public readonly BotOwner Bot = bot;
     
-    
     public readonly ActorTask Task = new();
     public readonly Movement Movement = new(bot);
     
