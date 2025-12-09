@@ -29,7 +29,7 @@ public class PhobosLayer : CustomLayer
     private const string LayerName = "PhobosLayer";
 
     private readonly SystemOrchestrator _systemOrchestrator;
-    private readonly Actor _actor;
+    private readonly Agent _agent;
     private readonly Squad _squad;
     
     public PhobosLayer(BotOwner botOwner, int priority) : base(botOwner, priority)
@@ -40,9 +40,9 @@ public class PhobosLayer : CustomLayer
         
         _systemOrchestrator = Singleton<SystemOrchestrator>.Instance;
         
-        _actor = new Actor(botOwner);
-        _systemOrchestrator.AddActor(_actor);
-        _squad = _systemOrchestrator.SquadOrchestrator.GetSquad(_actor.SquadId);
+        _agent = new Agent(botOwner);
+        _systemOrchestrator.AddActor(_agent);
+        _squad = _systemOrchestrator.SquadOrchestrator.GetSquad(_agent.SquadId);
 
         botOwner.Brain.BaseBrain.OnLayerChangedTo += OnLayerChanged;
         botOwner.GetPlayer.OnPlayerDead += OnDead;
@@ -51,14 +51,14 @@ public class PhobosLayer : CustomLayer
     private void OnDead(Player player, IPlayer lastAggressor, DamageInfoStruct damageInfo, EBodyPart part)
     {
         player.OnPlayerDead -= OnDead;
-        _actor.IsLayerActive = false;
-        _systemOrchestrator.RemoveActor(_actor);
+        _agent.IsLayerActive = false;
+        _systemOrchestrator.RemoveActor(_agent);
     }
 
     private void OnLayerChanged(AICoreLayerClass<BotLogicDecision> layer)
     {
-        _actor.IsLayerActive = layer.Name() == LayerName;
-        DebugLog.Write($"{_actor} layer changed to: {layer.Name()} priority: {layer.Priority}");
+        _agent.IsLayerActive = layer.Name() == LayerName;
+        DebugLog.Write($"{_agent} layer changed to: {layer.Name()} priority: {layer.Priority}");
     }
     
     public override string GetName()
@@ -90,7 +90,7 @@ public class PhobosLayer : CustomLayer
         if (isHealing || isInCombat)
             return false;
         
-        return _actor.IsPhobosActive;
+        return _agent.IsPhobosActive;
     }
     
     public override bool IsCurrentActionEnding()
@@ -101,13 +101,13 @@ public class PhobosLayer : CustomLayer
     public override void BuildDebugText(StringBuilder sb)
     {
         sb.AppendLine("*** Actor ***");
-        sb.AppendLine($"{_actor}");
-        sb.AppendLine($"{_actor.Objective}");
-        sb.AppendLine($"{_actor.Movement}");
+        sb.AppendLine($"{_agent}");
+        sb.AppendLine($"{_agent.Task}");
+        sb.AppendLine($"{_agent.Movement}");
         sb.AppendLine($"HasEnemy: {BotOwner.Memory.HaveEnemy} UnderFire: {BotOwner.Memory.IsUnderFire}");
         sb.AppendLine($"Pose: {BotOwner.GetPlayer.MovementContext.PoseLevel} Speed: {BotOwner.Mover?.DestMoveSpeed}");
         sb.AppendLine($"Standby: {BotOwner.StandBy.StandByType} candostandby: {BotOwner.StandBy.CanDoStandBy}");
         sb.AppendLine("*** Squad ***");
-        sb.AppendLine($"{_squad}, size: {_squad.Count}, {_squad.TargetLocation}");
+        sb.AppendLine($"{_squad}, size: {_squad.Count}, {_squad.Objective}");
     }
 }

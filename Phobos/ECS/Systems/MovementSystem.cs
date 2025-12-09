@@ -18,7 +18,7 @@ public class MovementSystem(NavJobExecutor navJobExecutor, ActorList liveActors)
     private const float TargetReachedDistSqr = 5f;
     private const float LookAheadDistSqr = 1.5f;
 
-    private readonly Queue<ValueTuple<Actor, NavJob>> _moveJobs = new(20);
+    private readonly Queue<ValueTuple<Agent, NavJob>> _moveJobs = new(20);
 
     public void Update()
     {
@@ -64,51 +64,51 @@ public class MovementSystem(NavJobExecutor navJobExecutor, ActorList liveActors)
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void MoveToDestination(Actor actor, Vector3 destination)
+    public void MoveToDestination(Agent agent, Vector3 destination)
     {
-        ScheduleMoveJob(actor, destination);
-        actor.Movement.Retry = 0;
+        ScheduleMoveJob(agent, destination);
+        agent.Movement.Retry = 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void MoveRetry(Actor actor, Vector3 destination)
+    private void MoveRetry(Agent agent, Vector3 destination)
     {
-        ScheduleMoveJob(actor, destination);
-        actor.Movement.Retry++;
+        ScheduleMoveJob(agent, destination);
+        agent.Movement.Retry++;
     }
 
-    private void ScheduleMoveJob(Actor actor, Vector3 destination)
+    private void ScheduleMoveJob(Agent agent, Vector3 destination)
     {
         // Queues up a pathfinding job, once that's ready, we move the bot along the path.
-        NavMesh.SamplePosition(actor.Bot.Position, out var origin, 5f, NavMesh.AllAreas);
+        NavMesh.SamplePosition(agent.Bot.Position, out var origin, 5f, NavMesh.AllAreas);
         var job = navJobExecutor.Submit(origin.position, destination);
-        _moveJobs.Enqueue((actor, job));
-        ResetTarget(actor.Movement, MovementStatus.Suspended);
+        _moveJobs.Enqueue((agent, job));
+        ResetTarget(agent.Movement, MovementStatus.Suspended);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void StartMovement(Actor actor, NavJob job)
+    private static void StartMovement(Agent agent, NavJob job)
     {
         if (job.Status == NavMeshPathStatus.PathInvalid)
         {
-            ResetTarget(actor.Movement, MovementStatus.Failed);
+            ResetTarget(agent.Movement, MovementStatus.Failed);
             return;
         }
 
-        AssignTarget(actor.Movement, job);
+        AssignTarget(agent.Movement, job);
 
-        actor.Bot.Mover.GoToByWay(job.Path, 2);
-        actor.Bot.Mover.ActualPathFinder.SlowAtTheEnd = true;
+        agent.Bot.Mover.GoToByWay(job.Path, 2);
+        agent.Bot.Mover.ActualPathFinder.SlowAtTheEnd = true;
 
         // Debug
         PathVis.Show(job.Path, thickness: 0.1f);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void UpdateMovement(Actor actor)
+    private void UpdateMovement(Agent agent)
     {
-        var bot = actor.Bot;
-        var movement = actor.Movement;
+        var bot = agent.Bot;
+        var movement = agent.Movement;
         
         // Movement control - must be always applied if we are active.
         // The sprint flag has to be enforced on every frame, as the BSG code can sometimes decide to change it randomly.
@@ -122,7 +122,7 @@ public class MovementSystem(NavJobExecutor navJobExecutor, ActorList liveActors)
         // Failsafe
         if (movement.Target == null)
         {
-            Plugin.Log.LogError($"Null target for {actor} even though the status is {movement.Status}");
+            Plugin.Log.LogError($"Null target for {agent} even though the status is {movement.Status}");
             movement.Status = MovementStatus.Suspended;
             return;
         }
@@ -141,7 +141,7 @@ public class MovementSystem(NavJobExecutor navJobExecutor, ActorList liveActors)
             // Try to find a new path.
             if (movement.Retry < RetryLimit)
             {
-                MoveRetry(actor, actor.Movement.Target.Position);
+                MoveRetry(agent, agent.Movement.Target.Position);
             }
             else
             {

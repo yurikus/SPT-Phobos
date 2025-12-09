@@ -9,19 +9,19 @@ public class SquadList(int capacity) : ExtendedList<Squad>(capacity);
 
 public class Squad(int id) : IEquatable<Squad>
 {
-    public Location TargetLocation;
+    public Location Objective;
     public readonly ActorList Members = new(6);
     
     private readonly int _id = id;
     
     public int Count => Members.Count;
 
-    public void AddMember(Actor member)
+    public void AddMember(Agent member)
     {
         Members.Add(member);
     }
 
-    public void RemoveMember(Actor member)
+    public void RemoveMember(Agent member)
     {
         Members.SwapRemove(member);
     }

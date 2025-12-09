@@ -6,9 +6,9 @@ using Phobos.ECS.Components;
 
 namespace Phobos.ECS.Entities;
 
-public class ActorList(int capacity) : ExtendedList<Actor>(capacity);
+public class ActorList(int capacity) : ExtendedList<Agent>(capacity);
 
-public class Actor(BotOwner bot) : IEquatable<Actor>
+public class Agent(BotOwner bot) : IEquatable<Agent>
 {
     public bool IsLayerActive = false;
     public bool IsPhobosActive = true;
@@ -16,9 +16,8 @@ public class Actor(BotOwner bot) : IEquatable<Actor>
     public readonly int SquadId = bot.BotsGroup.Id;
     public readonly BotOwner Bot = bot;
     
-    public readonly Objective Objective = new();
+    public readonly Task Task = new();
     public readonly Movement Movement = new(bot);
-    public readonly Guard Guard = new();
     
     public bool IsActive
     {
@@ -28,7 +27,7 @@ public class Actor(BotOwner bot) : IEquatable<Actor>
 
     private readonly int _id = bot.Id;
 
-    public bool Equals(Actor other)
+    public bool Equals(Agent other)
     {
         if (ReferenceEquals(other, null))
             return false;
@@ -40,7 +39,7 @@ public class Actor(BotOwner bot) : IEquatable<Actor>
     {
         if (obj is null) return false;
         if (ReferenceEquals(this, obj)) return true;
-        return obj.GetType() == GetType() && Equals((Actor)obj);
+        return obj.GetType() == GetType() && Equals((Agent)obj);
     }
 
     public override int GetHashCode()
