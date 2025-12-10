@@ -30,6 +30,7 @@ public class SquadStrategySystem
 
         _locationQueue = locationQueue;
 
+        // TODO: Refactor this shitshow.
         _objectiveSystems = new BaseObjectiveSystem[Enum.GetNames(typeof(ObjectiveType)).Length];
         _objectiveSystems[(int)ObjectiveType.Quest] = questObjectiveSystem;
         _objectiveSystems[(int)ObjectiveType.Guard] = guardObjectiveSystem;
@@ -83,8 +84,7 @@ public class SquadStrategySystem
             {
                 if (task.Current != task.Guard && task.Quest.Status == ObjectiveStatus.Success)
                 {
-                    DebugLog.Write($"Assigning {member} to Guard objective.");
-                    // TODO: Implement guarding
+                    _guardObjectiveSystem.BeginObjective(member, squad.Objective);
                 }
                 else if (task.Current != task.Quest && task.Quest.Status == ObjectiveStatus.Suspended)
                 {

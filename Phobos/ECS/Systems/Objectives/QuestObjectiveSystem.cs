@@ -28,12 +28,14 @@ public class QuestObjectiveSystem(MovementSystem movementSystem) : BaseObjective
         }
         
         objective.Status = ObjectiveStatus.Active;
+        
+        agent.Task.Current = objective;
         agent.Movement.Speed = 1f;
         
         AddAgent(agent);
         
         movementSystem.MoveToDestination(agent, location.Position);
-        DebugLog.Write($"Assigned {location} to {agent}");
+        DebugLog.Write($"Assigned {objective} to {agent}");
     }
 
     public override void ResetObjective(Agent agent)
@@ -62,6 +64,8 @@ public class QuestObjectiveSystem(MovementSystem movementSystem) : BaseObjective
         if (agent.Movement.Status == MovementStatus.Failed)
         {
             objective.Status = ObjectiveStatus.Failed;
+            agent.IsPhobosActive = false;
+            DebugLog.Write($"{agent} {objective} failed, disengaging Phobos.");
         }
         
         if (objective.Status != ObjectiveStatus.Active)

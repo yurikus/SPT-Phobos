@@ -12,7 +12,7 @@ public class Agent(BotOwner bot) : IEquatable<Agent>
 {
     public bool IsLayerActive = false;
     public bool IsPhobosActive = true;
-    
+
     public readonly int SquadId = bot.BotsGroup.Id;
     public readonly BotOwner Bot = bot;
     
