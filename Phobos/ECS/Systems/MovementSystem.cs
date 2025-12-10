@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using EFT;
+using EFT.Interactive;
 using Phobos.Diag;
 using Phobos.ECS.Components;
 using Phobos.ECS.Entities;
@@ -109,12 +111,18 @@ public class MovementSystem(NavJobExecutor navJobExecutor, AgentList liveAgents)
     {
         var bot = agent.Bot;
         var movement = agent.Movement;
+
+        var moveSpeedMult = 1f;
         
-        // Movement control - must be always applied if we are active.
+        // Door handling
+        if (HandleDoors(agent))
+            moveSpeedMult = 0.25f;
+        
+        // Movement control - must be always applied if Phobos is active.
         // The sprint flag has to be enforced on every frame, as the BSG code can sometimes decide to change it randomly.
         // We disable sprint for now as it looks jank and can get bots into weird spots sometimes.
         bot.Mover.Sprint(false);
-        bot.SetTargetMoveSpeed(movement.Speed);
+        bot.SetTargetMoveSpeed(movement.Speed * moveSpeedMult);
 
         if (movement.Status != MovementStatus.Active)
             return;
@@ -160,6 +168,28 @@ public class MovementSystem(NavJobExecutor navJobExecutor, AgentList liveAgents)
             movement.ActualPath.Vector3_0, bot.Position, movement.ActualPath.CurIndex, LookAheadDistSqr
         ) + 1.5f * Vector3.up;
         bot.Steering.LookToPoint(lookPoint, 360f);
+    }
+
+    private static bool HandleDoors(Agent agent)
+    {
+        var currentVoxel = agent.Bot.VoxelesPersonalData.CurVoxel;
+
+        if (currentVoxel == null) return false;
+
+        var foundDoors = false;
+        
+        for (var i = 0; i < currentVoxel.DoorLinks.Count; i++)
+        {
+            var door = currentVoxel.DoorLinks[i].Door;
+            var shouldOpen = door.enabled && door.gameObject.activeInHierarchy && door.Operatable && (door.DoorState & EDoorState.Open) == 0;
+
+            if (!shouldOpen || !((door.transform.position - agent.Bot.Position).sqrMagnitude < 9f)) continue;
+            
+            foundDoors = true;
+            door.Open();
+        }
+
+        return foundDoors;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -1,5 +1,4 @@
 ﻿# TODO:
-* Get basic objective system online, doesn't have to be pretty
 * Spend a bit of time refining the movement system so that it works well, understands doors, etc.
 * Add simplistic door handling where the bot auto-opens nearby doors and stops sprinting if there's a door within 5 meters
 * Sprinting
