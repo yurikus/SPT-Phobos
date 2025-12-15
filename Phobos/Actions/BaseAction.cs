@@ -13,7 +13,9 @@ public abstract class BaseAction(Dataset dataset, float hysteresis)
     protected readonly List<Agent> ActiveAgents = new(16);
     private readonly HashSet<Agent> _agentSet = [];
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public abstract void UpdateUtility();
+    public abstract void Update();
+
     public virtual void Activate(Agent agent)
     {
         if (!_agentSet.Add(agent))
@@ -22,7 +24,6 @@ public abstract class BaseAction(Dataset dataset, float hysteresis)
         ActiveAgents.Add(agent);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public virtual void Deactivate(Agent agent)
     {
         if (!_agentSet.Remove(agent))

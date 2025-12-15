@@ -57,10 +57,10 @@ public class Plugin : BaseUnityPlugin
         // Misc setup
         var brains = new List<string>()
         {
-            EBrain.PMC.ToString(),
-            EBrain.PmcUsec.ToString(),
-            EBrain.PmcBear.ToString(),
-            EBrain.Assault.ToString()
+            BsgBrain.PMC.ToString(),
+            BsgBrain.PmcUsec.ToString(),
+            BsgBrain.PmcBear.ToString(),
+            BsgBrain.Assault.ToString()
         };
         
         BrainManager.AddCustomLayer(typeof(PhobosLayer), brains,19);

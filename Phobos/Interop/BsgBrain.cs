@@ -1,6 +1,6 @@
 ﻿namespace Phobos.Enums;
 
-public enum EBrain
+public enum BsgBrain
 {
     ArenaFighter,
     BossBully,

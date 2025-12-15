@@ -4,6 +4,7 @@ using Phobos.ECS.Entities;
 using Phobos.ECS.Systems;
 using Phobos.Entities;
 using Phobos.Navigation;
+using Phobos.Orchestration;
 
 namespace Phobos.ECS;
 
@@ -12,7 +13,7 @@ namespace Phobos.ECS;
 public class SystemOrchestrator
 {
     public readonly SquadOrchestrator SquadOrchestrator;
-    public readonly ActionOrchestrator ActionOrchestrator;
+    public readonly ActionManager ActionManager;
     
     public readonly MovementSystem MovementSystem;
     public readonly AgentList LiveAgents;
@@ -28,7 +29,7 @@ public class SystemOrchestrator
         SquadOrchestrator = new SquadOrchestrator(locationQueue);
         
         DebugLog.Write("Creating ActionOrchestrator");
-        ActionOrchestrator = new ActionOrchestrator(LiveAgents);
+        ActionManager = new ActionManager(LiveAgents);
     }
 
     public void AddAgent(Agent agent)
@@ -42,13 +43,13 @@ public class SystemOrchestrator
     {
         LiveAgents.SwapRemove(agent);
         SquadOrchestrator.RemoveAgent(agent);
-        ActionOrchestrator.RemoveAgent(agent);
+        ActionManager.RemoveAgent(agent);
     }
 
     public void Update()
     {
         SquadOrchestrator.Update();
-        ActionOrchestrator.Update();
+        ActionManager.Update();
         
         QuestObjectiveSystem.Update();
         MovementSystem.Update();

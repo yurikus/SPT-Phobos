@@ -9,7 +9,7 @@ public class GuardAction(Dataset dataset) : BaseAction(dataset, hysteresis: 0.05
     private readonly Dataset _dataset = dataset;
     private readonly ComponentArray<GuardComponent> _guardComponents = dataset.GetComponentArray<GuardComponent>();
 
-    public void UpdateUtility()
+    public override void UpdateUtility()
     {
         var agents = _dataset.Agents.Values;
         
@@ -20,7 +20,7 @@ public class GuardAction(Dataset dataset) : BaseAction(dataset, hysteresis: 0.05
         }
     }
     
-    public void UpdateAction()
+    public override void Update()
     {
         for (var i = 0; i < ActiveAgents.Count; i++)
         {
