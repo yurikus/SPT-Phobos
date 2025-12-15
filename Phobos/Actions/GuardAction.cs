@@ -4,14 +4,13 @@ using Phobos.Entities;
 
 namespace Phobos.Actions;
 
-public class GuardAction(Dataset dataset) : BaseAction(dataset, hysteresis: 0.05f)
+public class GuardAction(Dataset dataset) : BaseAction(hysteresis: 0.05f)
 {
-    private readonly Dataset _dataset = dataset;
     private readonly ComponentArray<GuardComponent> _guardComponents = dataset.GetComponentArray<GuardComponent>();
 
     public override void UpdateUtility()
     {
-        var agents = _dataset.Agents.Values;
+        var agents = dataset.Agents.Values;
         
         for (var i = 0; i < agents.Count; i++)
         {

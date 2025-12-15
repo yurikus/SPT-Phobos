@@ -13,13 +13,13 @@ public class Agent(BotOwner bot, int id) : IEquatable<Agent>
     public readonly int BotId = bot.Id;
     public readonly int SquadId = bot.BotsGroup.Id;
     public readonly BotOwner Bot = bot;
+
+    public readonly List<IComponent> Components = new(32);
+    public readonly List<UtilityScore> UtilityScores = new(16);
+    public BaseAction CurrentAction;
     
     public bool IsLayerActive = false;
     public bool IsPhobosActive = true;
-
-    public List<IComponent> Components = new(32);
-    public List<UtilityScore> UtilityScores = new(16);
-    public BaseAction CurrentAction;
     
     public bool IsActive
     {

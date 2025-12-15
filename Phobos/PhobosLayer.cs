@@ -3,8 +3,6 @@ using Comfort.Common;
 using DrakiaXYZ.BigBrain.Brains;
 using EFT;
 using Phobos.Diag;
-using Phobos.ECS;
-using Phobos.ECS.Entities;
 using Phobos.Entities;
 using UnityEngine;
 
@@ -29,9 +27,9 @@ public class PhobosLayer : CustomLayer
 {
     private const string LayerName = "PhobosLayer";
 
-    private readonly SystemOrchestrator _systemOrchestrator;
+    private readonly PhobosSystem _phobosSystem;
     private readonly Agent _agent;
-    private readonly Squad _squad;
+    // private readonly Squad _squad;
     
     public PhobosLayer(BotOwner botOwner, int priority) : base(botOwner, priority)
     {
@@ -39,11 +37,10 @@ public class PhobosLayer : CustomLayer
         botOwner.StandBy.CanDoStandBy = false;
         botOwner.StandBy.Activate();
         
-        _systemOrchestrator = Singleton<SystemOrchestrator>.Instance;
+        _phobosSystem = Singleton<PhobosSystem>.Instance;
         
-        _agent = new Agent(botOwner);
-        _systemOrchestrator.AddAgent(_agent);
-        _squad = _systemOrchestrator.SquadOrchestrator.GetSquad(_agent.SquadId);
+        _phobosSystem.AddAgent(botOwner);
+        // _squad = _systemOrchestrator.SquadOrchestrator.GetSquad(_agent.SquadId);
 
         botOwner.Brain.BaseBrain.OnLayerChangedTo += OnLayerChanged;
         botOwner.GetPlayer.OnPlayerDead += OnDead;
@@ -53,7 +50,7 @@ public class PhobosLayer : CustomLayer
     {
         player.OnPlayerDead -= OnDead;
         _agent.IsLayerActive = false;
-        _systemOrchestrator.RemoveAgent(_agent);
+        _phobosSystem.RemoveAgent(_agent);
     }
 
     private void OnLayerChanged(AICoreLayerClass<BotLogicDecision> layer)
@@ -103,12 +100,12 @@ public class PhobosLayer : CustomLayer
     {
         sb.AppendLine("*** Actor ***");
         sb.AppendLine($"{_agent}");
-        sb.AppendLine($"{_agent.Task}");
-        sb.AppendLine($"{_agent.Movement}");
+        // sb.AppendLine($"{_agent.Task}");
+        // sb.AppendLine($"{_agent.Movement}");
         sb.AppendLine($"HasEnemy: {BotOwner.Memory.HaveEnemy} UnderFire: {BotOwner.Memory.IsUnderFire}");
         sb.AppendLine($"Pose: {BotOwner.GetPlayer.MovementContext.PoseLevel} Speed: {BotOwner.Mover?.DestMoveSpeed}");
         sb.AppendLine($"Standby: {BotOwner.StandBy.StandByType} candostandby: {BotOwner.StandBy.CanDoStandBy}");
         sb.AppendLine("*** Squad ***");
-        sb.AppendLine($"{_squad}, size: {_squad.Count}, {_squad.Objective}");
+        // sb.AppendLine($"{_squad}, size: {_squad.Count}, {_squad.Objective}");
     }
 }

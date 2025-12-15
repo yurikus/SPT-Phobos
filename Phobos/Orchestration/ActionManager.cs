@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
+using Comfort.Common;
 using Phobos.Data;
+using Phobos.Diag;
 using Phobos.Entities;
 using BaseAction = Phobos.Actions.BaseAction;
 
@@ -10,7 +12,7 @@ public class ActionManager(Dataset dataset)
     private readonly List<BaseAction> _actions = [];
     
     // TODO Add multiple action lists according to different utility update frequencies: realtime, high (0.1s), low (1s)
-    // Not every action needs their utility updated every frame. Basically only combat will run real time.
+    //      Not every action needs their utility updated every frame. Basically only combat will run real time.
     
     public void RemoveAgent(Agent agent)
     {
@@ -60,6 +62,8 @@ public class ActionManager(Dataset dataset)
                 highestScore = score;
                 nextAction = entry.Action;
             }
+            
+            Singleton<Telemetry>.Instance.UpdateScores(agent);
             
             agent.UtilityScores.Clear();
 

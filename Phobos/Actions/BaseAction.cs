@@ -6,7 +6,7 @@ using Phobos.Helpers;
 
 namespace Phobos.Actions;
 
-public abstract class BaseAction(Dataset dataset, float hysteresis)
+public abstract class BaseAction(float hysteresis)
 {
     public readonly float Hysteresis = hysteresis;
     

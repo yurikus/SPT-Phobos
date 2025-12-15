@@ -12,7 +12,7 @@ public class Dataset
     private readonly List<IComponentArray> _components = [];
     private readonly Dictionary<Type, IComponentArray> _componentsTypeMap = new();
 
-    public void AddAgent(BotOwner bot)
+    public Agent AddAgent(BotOwner bot)
     {
         var agent = Agents.Add(bot);
         
@@ -22,6 +22,8 @@ public class Dataset
             var item = component.Add(agent.Id);
             agent.Components.Add(item);
         }
+        
+        return agent;
     }
     
     public void RemoveAgent(Agent agent)
