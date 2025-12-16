@@ -29,6 +29,7 @@ public class PhobosLayer : CustomLayer
 
     private readonly PhobosSystem _phobosSystem;
     private readonly Agent _agent;
+    private readonly Squad _squad; 
     // private readonly Squad _squad;
     
     public PhobosLayer(BotOwner botOwner, int priority) : base(botOwner, priority)
@@ -39,8 +40,8 @@ public class PhobosLayer : CustomLayer
         
         _phobosSystem = Singleton<PhobosSystem>.Instance;
         
-        _phobosSystem.AddAgent(botOwner);
-        // _squad = _systemOrchestrator.SquadOrchestrator.GetSquad(_agent.SquadId);
+        _agent = _phobosSystem.AddAgent(botOwner);
+        _squad = _phobosSystem.SquadManager[_agent.SquadId];
 
         botOwner.Brain.BaseBrain.OnLayerChangedTo += OnLayerChanged;
         botOwner.GetPlayer.OnPlayerDead += OnDead;
@@ -98,7 +99,6 @@ public class PhobosLayer : CustomLayer
 
     public override void BuildDebugText(StringBuilder sb)
     {
-        sb.AppendLine("*** Actor ***");
         sb.AppendLine($"{_agent}");
         // sb.AppendLine($"{_agent.Task}");
         // sb.AppendLine($"{_agent.Movement}");
@@ -106,6 +106,6 @@ public class PhobosLayer : CustomLayer
         sb.AppendLine($"Pose: {BotOwner.GetPlayer.MovementContext.PoseLevel} Speed: {BotOwner.Mover?.DestMoveSpeed}");
         sb.AppendLine($"Standby: {BotOwner.StandBy.StandByType} candostandby: {BotOwner.StandBy.CanDoStandBy}");
         sb.AppendLine("*** Squad ***");
-        // sb.AppendLine($"{_squad}, size: {_squad.Count}, {_squad.Objective}");
+        sb.AppendLine($"{_squad}, size: {_squad.Count}, {_squad.Objective}");
     }
 }

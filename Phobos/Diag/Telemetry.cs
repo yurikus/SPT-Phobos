@@ -35,12 +35,14 @@ public class Telemetry
     [Conditional("DEBUG")]
     public void AddAgent(Agent agent)
     {
+        DebugLog.Write($"Adding {agent} to Telemetry");
         _agentTelemetry[agent] = new();
     }
 
     [Conditional("DEBUG")]
     public void RemoveAgent(Agent agent)
     {
+        DebugLog.Write($"Removing {agent} from Telemetry");
         _agentTelemetry.Remove(agent);
     }
 }

@@ -16,6 +16,7 @@ public class ActionManager(Dataset dataset)
     
     public void RemoveAgent(Agent agent)
     {
+        DebugLog.Write($"Removing {agent} from all actions");
         for (var i = 0; i < _actions.Count; i++)
         {
             var action = _actions[i];
@@ -23,7 +24,7 @@ public class ActionManager(Dataset dataset)
         }
     }
 
-    public void AddAction(BaseAction action)
+    public void RegisterAction(BaseAction action)
     {
         _actions.Add(action);
     }
@@ -42,10 +43,14 @@ public class ActionManager(Dataset dataset)
         {
             var agent = agents[i];
 
-            if (!agent.IsActive && agent.CurrentAction != null)
+            if (!agent.IsActive)
             {
-                agent.CurrentAction.Deactivate(agent);
-                agent.CurrentAction = null;
+                if (agent.CurrentAction != null)
+                {
+                    agent.CurrentAction.Deactivate(agent);
+                    agent.CurrentAction = null;
+                }
+                
                 continue;
             }
 

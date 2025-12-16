@@ -1,6 +1,8 @@
 ﻿using Phobos.Data;
 
-public class Program
+namespace Gym;
+
+public static class Program
 {
     public static void Main(string[] args)
     {

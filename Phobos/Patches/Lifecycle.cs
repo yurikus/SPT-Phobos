@@ -24,16 +24,19 @@ public class PhobosInitPatch : ModulePatch
             return;
         
         DebugLog.Write("Initializing Phobos");
+
+        var telemetry = new Telemetry();
         
         // Services
         var navJobExecutor = new NavJobExecutor();
         
         // Systems
-        var phobosSystem = new PhobosSystem();
+        var phobosSystem = new PhobosSystem(telemetry);
         
         // Registry
         Singleton<PhobosSystem>.Create(phobosSystem);
         Singleton<NavJobExecutor>.Create(navJobExecutor);
+        Singleton<Telemetry>.Create(telemetry);
     }
 }
 
@@ -74,6 +77,7 @@ public class PhobosDisposePatch : ModulePatch
         Plugin.Log.LogInfo("Disposing of static & long lived objects.");
         Singleton<PhobosSystem>.Release(Singleton<PhobosSystem>.Instance);
         Singleton<NavJobExecutor>.Release(Singleton<NavJobExecutor>.Instance);
+        Singleton<Telemetry>.Release(Singleton<Telemetry>.Instance);
         Plugin.Log.LogInfo("Disposing complete.");
     }
 }
