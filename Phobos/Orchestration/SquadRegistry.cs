@@ -2,14 +2,11 @@
 using Phobos.Data;
 using Phobos.Diag;
 using Phobos.Entities;
-using Phobos.Helpers;
 
 namespace Phobos.Orchestration;
 
-public class SquadSystem(SquadData squadData, StrategySystem strategySystem, Telemetry telemetry)
+public class SquadRegistry(SquadData squadData, StrategySystem strategySystem, Telemetry telemetry)
 {
-    private readonly TimePacing _pacing = new(1);
-
     private readonly Dictionary<int, int> _squadIdMap = new(16);
 
     public Squad this[int bsgSquadId]
@@ -21,24 +18,7 @@ public class SquadSystem(SquadData squadData, StrategySystem strategySystem, Tel
         }
     }
 
-    public void Update()
-    {
-        strategySystem.Update();
-
-        // for (var i = 0; i < _squads.Count; i++)
-        // {
-        //     var squad = _squads[i];
-        //
-        //     if (squad.Objective != null) continue;
-        //
-        //     // If the squad does not have an objective yet, grab one.
-        //     var location = locationQueue.Next();
-        //     squad.Objective = location;
-        //     DebugLog.Write($"Assigned {location} to {squad}");
-        // }
-    }
-
-    public void AddEntity(Agent agent)
+    public void AddAgent(Agent agent)
     {
         var bsgSquadId = agent.Bot.BotsGroup.Id;
         Squad squad;
@@ -48,7 +28,7 @@ public class SquadSystem(SquadData squadData, StrategySystem strategySystem, Tel
         }
         else
         {
-            squad = squadData.AddEntity();
+            squad = squadData.AddEntity(strategySystem.TaskCount);
             _squadIdMap.Add(bsgSquadId, squad.Id);
             telemetry.AddEntity(squad);
             DebugLog.Write($"Registered new {squad}");
@@ -58,7 +38,7 @@ public class SquadSystem(SquadData squadData, StrategySystem strategySystem, Tel
         DebugLog.Write($"Added {agent} to {squad} with {squad.Size} members");
     }
 
-    public void RemoveEntity(Agent agent)
+    public void RemoveAgent(Agent agent)
     {
         if (!_squadIdMap.TryGetValue(agent.Bot.BotsGroup.Id, out var squadId)) return;
 
@@ -66,7 +46,7 @@ public class SquadSystem(SquadData squadData, StrategySystem strategySystem, Tel
         squad.RemoveAgent(agent);
         DebugLog.Write($"Removed {agent} from {squad} with {squad.Size} members remaining");
 
-        if (squad.Size != 0) return;
+        if (squad.Size > 0) return;
 
         DebugLog.Write($"Removing empty {squad}");
         squadData.Entities.Remove(squad);

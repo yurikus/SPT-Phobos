@@ -7,14 +7,17 @@ namespace Phobos.Orchestration;
 
 public class BaseTaskSystem<TEntity>(Task<TEntity>[] tasks) where TEntity : Entity
 {
+    public int TaskCount
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => tasks.Length;
+    }
+    
     public void RemoveEntity(TEntity entity)
     {
-        DebugLog.Write($"Removing {entity} from all actions");
-        for (var i = 0; i < tasks.Length; i++)
-        {
-            var task = tasks[i];
-            task.Deactivate(entity);
-        }
+        DebugLog.Write($"Removing {entity} from ");
+        entity.TaskAssignment.Task?.Deactivate(entity);
+        entity.TaskAssignment = new TaskAssignment();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

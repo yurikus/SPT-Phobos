@@ -4,35 +4,35 @@ using Phobos.Entities;
 
 namespace Phobos.Tasks.Actions;
 
-public class GotoObjectiveAction(AgentData dataset, float hysteresis) : Task<Agent>(hysteresis)
-{
-    private readonly ComponentArray<Objective> _objectiveComponents = dataset.GetComponentArray<Objective>();
-    
-    public override void UpdateUtility()
-    {
-        var agents = dataset.Entities.Values;
-        for (var i = 0; i < agents.Count; i++)
-        {
-            var agent = agents[i];
-            var objective = _objectiveComponents[agent.Id];
-
-            // We only participate in the scoring if we have an objective
-            if (objective.Location != null)
-            {
-                agent.Actions.Add(new ActionScore(0.5f, this));
-            }
-        }
-    }
-
-    public override void Update()
-    {
-        for (var i = 0; i < ActiveEntities.Count; i++)
-        {
-            var agent = ActiveEntities[i];
-            var objective = _objectiveComponents[agent.Id];
-        }
-    }
-}
+// public class GotoObjectiveAction(AgentData dataset, float hysteresis) : Task<Agent>(hysteresis)
+// {
+//     private readonly ComponentArray<Objective> _objectiveComponents = dataset.GetComponentArray<Objective>();
+//     
+//     public override void UpdateUtility()
+//     {
+//         var agents = dataset.Entities.Values;
+//         for (var i = 0; i < agents.Count; i++)
+//         {
+//             var agent = agents[i];
+//             var objective = _objectiveComponents[agent.Id];
+//
+//             // We only participate in the scoring if we have an objective
+//             if (objective.Location != null)
+//             {
+//                 agent.Actions.Add(new ActionScore(0.5f, this));
+//             }
+//         }
+//     }
+//
+//     public override void Update()
+//     {
+//         for (var i = 0; i < ActiveEntities.Count; i++)
+//         {
+//             var agent = ActiveEntities[i];
+//             var objective = _objectiveComponents[agent.Id];
+//         }
+//     }
+// }
 
 // public class ObjectiveAction(MovementSystem movementSystem) : BaseAction(hysteresis: 0.25f)
 // {

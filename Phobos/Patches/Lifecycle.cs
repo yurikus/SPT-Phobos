@@ -38,10 +38,6 @@ public class PhobosInitPatch : ModulePatch
         Singleton<PhobosSystem>.Create(phobosSystem);
         Singleton<NavJobExecutor>.Create(navJobExecutor);
         Singleton<Telemetry>.Create(telemetry);
-        
-        phobosSystem.RegisterComponents();
-        phobosSystem.RegisterActions();
-        phobosSystem.RegisterStrategies();
     }
 }
 

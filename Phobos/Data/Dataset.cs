@@ -3,15 +3,12 @@ using System.Collections.Generic;
 using EFT;
 using Phobos.Components;
 using Phobos.Entities;
-using Phobos.Tasks;
-using Phobos.Tasks.Actions;
 
 namespace Phobos.Data;
 
-public class Dataset<T, TE>(TE entities, Task<T>[] tasks) where TE : EntityArray<T> where T : Entity
+public class Dataset<T, TE>(TE entities) where TE : EntityArray<T> where T : Entity
 {
     public readonly TE Entities =  entities;
-    public readonly Task<T>[] Tasks = tasks;
     
     private readonly List<IComponentArray> _components = [];
     private readonly Dictionary<Type, IComponentArray> _componentsTypeMap = new();
@@ -36,8 +33,9 @@ public class Dataset<T, TE>(TE entities, Task<T>[] tasks) where TE : EntityArray
         }
     }
     
-    public void RegisterComponent(IComponentArray componentArray)
+    public void RegisterComponent<TC>(Func<int, TC> builder) where TC : Component
     {
+        var componentArray = new ComponentArray<TC>(builder);
         _componentsTypeMap.Add(componentArray.GetType(), componentArray);
         _components.Add(componentArray);
     }
@@ -48,11 +46,11 @@ public class Dataset<T, TE>(TE entities, Task<T>[] tasks) where TE : EntityArray
     }
 }
 
-public class AgentData(Task<Agent>[] actions) : Dataset<Agent, AgentArray>(new AgentArray(), actions)
+public class AgentData() : Dataset<Agent, AgentArray>(new AgentArray())
 {
-    public Agent AddEntity(BotOwner bot)
+    public Agent AddEntity(BotOwner bot, int taskCount)
     {
-        var agent = Entities.Add(bot, Tasks.Length);
+        var agent = Entities.Add(bot, taskCount);
         
         AddEntityComponents(agent);
                 
@@ -60,11 +58,11 @@ public class AgentData(Task<Agent>[] actions) : Dataset<Agent, AgentArray>(new A
     }
 }
 
-public class SquadData(Task<Squad>[] strategies) : Dataset<Squad, SquadArray>(new SquadArray(), strategies)
+public class SquadData() : Dataset<Squad, SquadArray>(new SquadArray())
 {
-    public Squad AddEntity()
+    public Squad AddEntity(int taskCount)
     {
-        var squad = Entities.Add(Tasks.Length);
+        var squad = Entities.Add(taskCount);
         
         AddEntityComponents(squad);
                 

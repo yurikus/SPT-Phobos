@@ -5,7 +5,7 @@ using Phobos.Tasks;
 
 namespace Phobos.Orchestration;
 
-public class ActionSystem(AgentData dataset) : BaseTaskSystem<Agent>(dataset.Tasks)
+public class ActionSystem(AgentData dataset, Task<Agent>[] tasks) : BaseTaskSystem<Agent>(tasks)
 {
     public void Update()
     {

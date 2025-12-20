@@ -44,7 +44,7 @@ public class PhobosLayer : CustomLayer
         _agent = _phobosSystem.AddAgent(botOwner);
 
         var bsgSquadId = _agent.Bot.BotsGroup.Id;
-        _squad = _phobosSystem.SquadSystem[bsgSquadId];
+        _squad = _phobosSystem.SquadRegistry[bsgSquadId];
 
         botOwner.Brain.BaseBrain.OnLayerChangedTo += OnLayerChanged;
         botOwner.GetPlayer.OnPlayerDead += OnDead;

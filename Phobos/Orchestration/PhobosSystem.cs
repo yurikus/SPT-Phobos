@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using EFT;
 using Phobos.Components;
 using Phobos.Components.Squad;
@@ -6,35 +7,46 @@ using Phobos.Data;
 using Phobos.Diag;
 using Phobos.Entities;
 using Phobos.Navigation;
+using Phobos.Tasks;
 using Phobos.Tasks.Strategies;
 
 namespace Phobos.Orchestration;
 
 public class PhobosSystem
 {
-    public readonly AgentData AgentData;
-    public readonly SquadData SquadData;
+    public delegate void RegisterComponentsDelegate(AgentData agentData, SquadData squadData);
+    public delegate void RegisterStrategiesDelegate(List<Task<Squad>> strategies);
     
-    public readonly ActionSystem ActionSystem;
-    public readonly StrategySystem StrategySystem;
-    
-    public readonly SquadSystem SquadSystem;
+    public static RegisterComponentsDelegate OnRegisterComponents;
+    public static RegisterStrategiesDelegate OnRegisterStrategies;
 
-    public readonly LocationQueue LocationQueue;
+    public SquadRegistry SquadRegistry
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _squadRegistry;
+    }
+    
+    private readonly AgentData _agentData;
+    private readonly SquadData _squadData;
+    
+    private readonly ActionSystem _actionSystem;
+    private readonly StrategySystem _strategySystem;
+    private readonly SquadRegistry _squadRegistry;
     
     private readonly Telemetry _telemetry;
 
-    public PhobosSystem(Func<AgentData> actionBuilders, Telemetry telemetry)
+    public PhobosSystem(Telemetry telemetry)
     {
-        LocationQueue = new LocationQueue();
+        _agentData = new AgentData();
+        _squadData = new SquadData();
         
-        AgentData = new AgentData();
-        SquadData = new SquadData();
+        RegisterComponents();
+        var strategies = RegisterStrategies();
         
-        ActionSystem = new ActionSystem(AgentData);
-        StrategySystem = new StrategySystem(SquadData);
+        _actionSystem = new ActionSystem(_agentData);
+        _strategySystem = new StrategySystem(_squadData, strategies);
         
-        SquadSystem =  new SquadSystem(SquadData, StrategySystem, telemetry);
+        _squadRegistry =  new SquadRegistry(_squadData, _strategySystem, telemetry);
         
         _telemetry = telemetry;
     }
@@ -42,21 +54,28 @@ public class PhobosSystem
     public void RegisterComponents()
     {
         // Register components with the datasets
-        AgentData.RegisterComponent(new ComponentArray<Objective>(id => new Objective(id)));
-        SquadData.RegisterComponent(new ComponentArray<SquadObjective>(id => new SquadObjective(id)));
+        _agentData.RegisterComponent(id => new Objective(id));
+        _squadData.RegisterComponent(id => new SquadObjective(id));
+
+        OnRegisterComponents?.Invoke(_agentData, _squadData);
     }
 
-    public void RegisterStrategies()
+    public Task<Squad>[] RegisterStrategies()
     {
-        StrategySystem.RegisterStrategy(new GotoObjectiveStrategy(SquadData, AgentData, LocationQueue, 0.25f));
+        List<Task<Squad>> strategies = [
+            new GotoObjectiveStrategy(_squadData, _agentData, new LocationQueue(), 0.25f)
+        ];
+        
+        OnRegisterStrategies?.Invoke(strategies);
+        
+        return strategies.ToArray();
     }
     
     public Agent AddAgent(BotOwner bot)
     {
-        var agent = AgentData.AddEntity(bot);
-        
+        var agent = _agentData.AddEntity(bot, _actionSystem.TaskCount);
+        _squadRegistry.AddAgent(agent);
         DebugLog.Write($"Adding {agent} to Phobos");
-        SquadSystem.AddEntity(agent);
         _telemetry.AddEntity(agent);
         return agent;
     }
@@ -64,17 +83,17 @@ public class PhobosSystem
     public void RemoveAgent(Agent agent)
     {
         DebugLog.Write($"Removing {agent} from Phobos");
-        AgentData.RemoveEntity(agent);
         
-        ActionSystem.RemoveEntity(agent);
-        SquadSystem.RemoveEntity(agent);
+        _agentData.RemoveEntity(agent);
+        _squadRegistry.RemoveAgent(agent);
         
+        _actionSystem.RemoveEntity(agent);
         _telemetry.RemoveEntity(agent);
     }
 
     public void Update()
     {
-        ActionSystem.Update();
-        SquadSystem.Update();
+        _actionSystem.Update();
+        _strategySystem.Update();
     }
 }
