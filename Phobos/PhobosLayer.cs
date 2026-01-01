@@ -89,13 +89,12 @@ public class PhobosLayer : CustomLayer
         var isHealing = BotOwner.Medecine.Using || BotOwner.Medecine.SurgicalKit.HaveWork || BotOwner.Medecine.FirstAid.Have2Do;
         return !isHealing;
     }
-    
+
+    // ReSharper disable once InvertIf
     public override bool IsCurrentActionEnding()
     {
         // SAIN unfortunately messes up the bot move state. We need to delay activation by a couple of frames to allow the state to get updated
         // properly by the BSG code, otherwise bots will be teleported to the last BSG managed position.
-        
-        // ReSharper disable once InvertIf
         if (!_agent.IsActive && Time.frameCount - _activationFrame > ActivationDelay)
         {
             DebugLog.Write($"Activating {_agent}");
