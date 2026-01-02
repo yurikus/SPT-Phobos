@@ -55,16 +55,26 @@ public class Plugin : BaseUnityPlugin
         new PhobosDisposePatch().Enable();
         new PhobosFrameUpdatePatch().Enable();
         
+        new MovementContextIsAIPatch().Enable();
+        new TestBotMoverManualFixedUpdatePatch().Enable();
+        // new TestBotMoverManualUpdatePatch().Enable();
+        
         // Misc setup
         var brains = new List<string>()
         {
             nameof(BsgBrain.PMC),
             nameof(BsgBrain.PmcUsec),
             nameof(BsgBrain.PmcBear),
-            nameof(BsgBrain.Assault)
+            nameof(BsgBrain.Assault),
+            nameof(BsgBrain.Knight),
+            nameof(BsgBrain.BigPipe),
+            nameof(BsgBrain.BirdEye),
+            nameof(BsgBrain.SectantPriest),
+            nameof(BsgBrain.SectantWarrior),
         };
         
-        BrainManager.AddCustomLayer(typeof(PhobosLayer), brains,19);
+        // TODO: Revert to 19
+        BrainManager.AddCustomLayer(typeof(PhobosLayer), brains,119);
 
         // This layer makes scavs stand still doing bugger all
         BrainManager.RemoveLayer("AssaultEnemyFar", brains);

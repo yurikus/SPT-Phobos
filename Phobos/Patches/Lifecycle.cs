@@ -2,6 +2,7 @@
 using System.Reflection;
 using Comfort.Common;
 using EFT;
+using HarmonyLib;
 using Phobos.Diag;
 using Phobos.Navigation;
 using Phobos.Orchestration;
@@ -56,8 +57,8 @@ public class PhobosFrameUpdatePatch : ModulePatch
 
     // Has to be a postfix otherwise weird shit happens like the AI ActualPath gets nulled out by BSG code before our layer gets deactivated
     // causing path jobs to be resubmitted needlessly.
-    [PatchPostfix]
     // ReSharper disable once InconsistentNaming
+    [PatchPostfix]
     public static void Postfix(AICoreControllerClass __instance)
     {
         // Bool_0 seems to be an IsActive flag
@@ -88,3 +89,64 @@ public class PhobosDisposePatch : ModulePatch
     }
 }
 
+// Stolen from Solarint's SAIN
+// Disables the check for is ai in movement context. could break things in the future
+public class MovementContextIsAIPatch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return AccessTools.PropertyGetter(typeof(MovementContext), nameof(MovementContext.IsAI));
+    }
+
+    // ReSharper disable once InconsistentNaming
+    [PatchPrefix]
+    public static bool Patch(ref bool __result)
+    {
+        __result = false;
+        return false;
+    }
+}
+
+// Stolen from Solarint's SAIN
+// Disable specific functions in Manual Update that might be causing erratic movement in sain bots if they are in combat.
+public class TestBotMoverManualFixedUpdatePatch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return AccessTools.Method(typeof(BotMover), nameof(BotMover.ManualFixedUpdate));
+    }
+
+    // ReSharper disable once InconsistentNaming
+    [PatchPrefix]
+    public static bool PatchPrefix(BotMover __instance)
+    {
+        return false;
+    }
+}
+
+
+// Stolen from Solarint's SAIN
+// Disable specific functions in Manual Update that might be causing erratic movement in sain bots.
+// NB: Currently unused as it seems unneeded.
+// ReSharper disable once ClassNeverInstantiated.Global
+public class TestBotMoverManualUpdatePatch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return AccessTools.Method(typeof(BotMover), nameof(BotMover.ManualUpdate));
+    }
+
+    // ReSharper disable once InconsistentNaming
+    [PatchPrefix]
+    public static bool PatchPrefix(BotMover __instance)
+    {
+        __instance.LocalAvoidance.DropOffset();
+        __instance.PositionOnWayInner = __instance.BotOwner_0.Position;
+
+        //__instance.method_16();
+        //__instance.method_15();
+        __instance.method_14();
+        //__instance.LocalAvoidance.ManualUpdate();
+        return false;
+    }
+}

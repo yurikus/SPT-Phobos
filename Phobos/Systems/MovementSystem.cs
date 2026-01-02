@@ -16,7 +16,8 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
     private const int RetryLimit = 10;
     private const float CornerReachedWalkDistSqr = 0.15f * 0.15f;
     private const float CornerReachedSprintDistSqr = 0.3f * 0.3f;
-
+    private const float TargetReachedDistSqr = 1f;
+    
     private readonly Queue<ValueTuple<Agent, NavJob>> _moveJobs = new(20);
 
     public void Update(List<Agent> liveAgents)
@@ -49,7 +50,7 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
             // Bail out if the agent is inactive
             if (!agent.IsActive)
             {
-                if (agent.Movement.Path != null)
+                if (agent.Movement.IsValid)
                 {
                     ResetPath(agent.Movement);
                 }
@@ -71,7 +72,6 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
     public void MoveToDirect(Agent agent, Vector3 destination)
     {
         throw new NotImplementedException();
-        agent.Movement.Retry = 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -162,77 +162,71 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
             }
         }
 
-        // Movement & Steering
-        var currentTarget = movement.Path[movement.CurrentCorner];
-        var moveVector = currentTarget - bot.Position;
-
-        var cornerReached = false;
-        var cornerReachedEps = bot.Mover.Sprinting ? CornerReachedSprintDistSqr : CornerReachedWalkDistSqr;
+        // Path handling
+        var moveVector = movement.Path[movement.CurrentCorner] - bot.Position;
         var nextCornerIndex = movement.CurrentCorner + 1; 
         var hasNextCorner = nextCornerIndex < movement.Path.Length;
-        var moveVectorSqrMag = moveVector.sqrMagnitude;
-        
-        if (moveVectorSqrMag <= cornerReachedEps)
-        {
-            cornerReached = true;
-        }
-        else if (moveVectorSqrMag < 1f && hasNextCorner)
-        {
-            var nextCorner = movement.Path[nextCornerIndex];
-            
-            if (!NavMesh.Raycast(bot.Position, nextCorner, out _, NavMesh.AllAreas))
-            {
-                cornerReached = true;
-            }
-        }
         
         if (hasNextCorner)
         {
+            var cornerReached = false;
+            var cornerReachedEps = bot.Mover.Sprinting ? CornerReachedSprintDistSqr : CornerReachedWalkDistSqr;
+            var moveVectorSqrMag = moveVector.sqrMagnitude;
+            
+            if (moveVectorSqrMag <= cornerReachedEps)
+            {
+                cornerReached = true;
+            }
+            else if (moveVectorSqrMag < 1f)
+            {
+                var nextCorner = movement.Path[nextCornerIndex];
+            
+                if (!NavMesh.Raycast(bot.Position, nextCorner, out _, NavMesh.AllAreas))
+                {
+                    cornerReached = true;
+                }
+            }
+            
             if (cornerReached)
             {
                 movement.CurrentCorner = nextCornerIndex;
-                currentTarget = movement.Path[movement.CurrentCorner];
-                moveVector = currentTarget - bot.Position;
+                moveVector = movement.Path[movement.CurrentCorner] - bot.Position;
             }
         }
         else
         {
             if (movement.Status == NavMeshPathStatus.PathPartial)
             {
+                ResetPath(movement);
+                
                 if (movement.Retry >= RetryLimit)
                 {
                     movement.Status = NavMeshPathStatus.PathInvalid;
-                    ResetPath(movement);
                     return;
                 }
                 
-                ResetPath(movement);
                 MoveRetry(agent, movement.Target);
                 return;
             }
 
-            if (cornerReached)
+            if ((movement.Path[movement.CurrentCorner] - bot.Position).sqrMagnitude <= TargetReachedDistSqr)
             {
                 ResetPath(movement);
                 return;
             }
         }
-
+        
+        // Steering
         moveVector.Normalize();
-
         var moveDir = CalcMoveDirection(moveVector, player.Rotation);
         player.CharacterController.SetSteerDirection(moveVector);
         player.Move(moveDir);
         bot.AimingManager.CurrentAiming.Move(player.Speed);
-
-        bot.AIData.SetPosToVoxel(bot.Position);
-        bot.Steering.LookToDirection(moveVector, 360f);
-
-        // Move these out into a LookSystem
-        // var lookPoint = PathHelper.CalculateForwardPointOnPath(
-        //     movement.ActualPath.Vector3_0, bot.Position, movement.ActualPath.CurIndex, LookAheadDistSqr
-        // ) + 1.5f * Vector3.up;
-        // bot.Steering.LookToPoint(lookPoint, 360f);
+        
+        if (movement.VoxelUpdatePacing.Allowed())
+        {
+            bot.AIData.SetPosToVoxel(bot.Position);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

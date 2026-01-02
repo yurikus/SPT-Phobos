@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System.Runtime.CompilerServices;
+using Phobos.Helpers;
+using UnityEngine;
 using UnityEngine.AI;
 
 namespace Phobos.Components;
@@ -16,6 +18,14 @@ public class Movement
     public float Pose = 1f;
     public bool Sprint = false;
     public bool Prone = false;
+
+    public bool IsValid
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => Path != null;
+    }
+    
+    public readonly TimePacing VoxelUpdatePacing = new(0.5f);
 
     public override string ToString()
     {

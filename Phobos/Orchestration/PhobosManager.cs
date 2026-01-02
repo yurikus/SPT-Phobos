@@ -38,6 +38,7 @@ public class PhobosManager
     public readonly SquadData SquadData;
 
     public readonly MovementSystem MovementSystem;
+    public readonly LookSystem LookSystem;
 
     public readonly ActionManager ActionManager;
     public readonly StrategyManager StrategyManager;
@@ -56,6 +57,7 @@ public class PhobosManager
         var strategies = RegisterStrategies();
 
         MovementSystem = movementSystem;
+        LookSystem = new LookSystem();
 
         ActionManager = new ActionManager(AgentData, actions);
         StrategyManager = new StrategyManager(SquadData, strategies);
@@ -83,16 +85,13 @@ public class PhobosManager
         StrategyManager.Update();
         ActionManager.Update();
         MovementSystem.Update(_liveAgents);
+        LookSystem.Update(_liveAgents);
     }
 
     private void RegisterComponents()
     {
         var agentComponentDefs = new DefinitionRegistry<IComponentArray>();
         var squadComponentDefs = new DefinitionRegistry<IComponentArray>();
-
-        agentComponentDefs.Add(new ComponentArray<Objective>());
-
-        squadComponentDefs.Add(new ComponentArray<SquadObjective>());
 
         OnRegisterAgentComponents?.Invoke(agentComponentDefs);
         foreach (var value in agentComponentDefs.Values)
@@ -123,7 +122,7 @@ public class PhobosManager
     {
         var strategies = new DefinitionRegistry<Task<Squad>>();
 
-        strategies.Add(new GotoObjectiveStrategy(SquadData, AgentData, new LocationQueue(), 0.25f));
+        strategies.Add(new GotoObjectiveStrategy(SquadData, new LocationQueue(), 0.25f));
 
         OnRegisterStrategies?.Invoke(strategies);
 

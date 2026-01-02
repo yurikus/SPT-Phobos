@@ -4,6 +4,7 @@ using Phobos.Data;
 using Phobos.Entities;
 using Phobos.Systems;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace Phobos.Tasks.Actions;
 
@@ -14,15 +15,13 @@ public class GotoObjectiveAction(AgentData dataset, float hysteresis) : Task<Age
     private const float UtilityBoostMaxDistSqr = 50f * 50f;
     private const float ObjectiveEpsDistSqr = 10f * 10f;
 
-    private readonly ComponentArray<Objective> _objectiveComponents = dataset.GetComponentArray<Objective>();
-
     public override void UpdateScore(int ordinal)
     {
         var agents = dataset.Entities.Values;
         for (var i = 0; i < agents.Count; i++)
         {
             var agent = agents[i];
-            var objective = _objectiveComponents[agent.Id];
+            var objective = agent.Objective;
 
             if (objective.Status == ObjectiveStatus.Failed || objective.Location == null)
             {
@@ -46,7 +45,7 @@ public class GotoObjectiveAction(AgentData dataset, float hysteresis) : Task<Age
         for (var i = 0; i < ActiveEntities.Count; i++)
         {
             var agent = ActiveEntities[i];
-            var objective = _objectiveComponents[agent.Id];
+            var objective = agent.Objective;
 
             // ReSharper disable once ConvertIfStatementToSwitchStatement
             if (objective.Status == ObjectiveStatus.Failed)
@@ -61,8 +60,8 @@ public class GotoObjectiveAction(AgentData dataset, float hysteresis) : Task<Age
                 return;
             }
             
-            // The movement might fail to reach all the way to the target point, but we may be within the objective zone already.
-            if (agent.Movement.Target is { Failed: true } && (objective.Location.Position - agent.Bot.Position).sqrMagnitude > ObjectiveEpsDistSqr)
+            // Only fail the objective if the movement fails outside the objective zone.  
+            if (agent.Movement.Status == NavMeshPathStatus.PathInvalid && (objective.Location.Position - agent.Bot.Position).sqrMagnitude > ObjectiveEpsDistSqr)
             {
                 objective.Status = ObjectiveStatus.Failed;
             }
@@ -73,7 +72,7 @@ public class GotoObjectiveAction(AgentData dataset, float hysteresis) : Task<Age
     {
         base.Activate(entity);
 
-        var objective = _objectiveComponents[entity.Id];
+        var objective = entity.Objective;
 
         // If the current objective failed bail out. 
         if (objective.Status == ObjectiveStatus.Failed)
@@ -84,14 +83,14 @@ public class GotoObjectiveAction(AgentData dataset, float hysteresis) : Task<Age
         objective.Status = ObjectiveStatus.Active;
         
         // Check if we are already moving to our target
-        if (entity.Movement.Target != null)
+        if (entity.Movement.IsValid)
         {
-            if ((entity.Movement.Target.Value.Position - objective.Location.Position).sqrMagnitude <= ObjectiveEpsDistSqr)
+            if ((entity.Movement.Target - objective.Location.Position).sqrMagnitude <= ObjectiveEpsDistSqr)
             {
                 return;
             }
         }
-
+        
         Singleton<MovementSystem>.Instance.MoveToByPath(entity, objective.Location.Position);
     }
 }

@@ -7,11 +7,8 @@ using Phobos.Navigation;
 
 namespace Phobos.Tasks.Strategies;
 
-public class GotoObjectiveStrategy(SquadData squadData, AgentData agentData, LocationQueue locationQueue, float hysteresis) : Task<Squad>(hysteresis)
+public class GotoObjectiveStrategy(SquadData squadData, LocationQueue locationQueue, float hysteresis) : Task<Squad>(hysteresis)
 {
-    private readonly ComponentArray<SquadObjective> _squadObjectives = squadData.GetComponentArray<SquadObjective>();
-    private readonly ComponentArray<Objective> _agentObjectives = agentData.GetComponentArray<Objective>();
-
     public override void UpdateScore(int ordinal)
     {
         var squads = squadData.Entities.Values;
@@ -27,25 +24,23 @@ public class GotoObjectiveStrategy(SquadData squadData, AgentData agentData, Loc
         for (var i = 0; i < ActiveEntities.Count; i++)
         {
             var squad = ActiveEntities[i];
-            var squadObjective = _squadObjectives[squad.Id];
         
-            if (squadObjective.Location == null)
+            if (squad.Objective.Location == null)
             {
-                squadObjective.Location = locationQueue.Next();
-                DebugLog.Write($"{squad} assigned objective {squadObjective.Location}");
+                squad.Objective.Location = locationQueue.Next();
+                DebugLog.Write($"{squad} assigned objective {squad.Objective.Location}");
             }
         
             for (var j = 0; j < squad.Size; j++)
             {
                 var agent = squad.Members[j];
-                var agentObjective = _agentObjectives[agent.Id];
         
-                if (squadObjective.Location == agentObjective.Location) continue;
+                if (squad.Objective.Location == agent.Objective.Location) continue;
         
-                DebugLog.Write($"{agent} assigned objective {squadObjective.Location}");
+                DebugLog.Write($"{agent} assigned objective {squad.Objective.Location}");
                 
-                agentObjective.Location = squadObjective.Location;
-                agentObjective.Status = ObjectiveStatus.Suspended;
+                agent.Objective.Location = squad.Objective.Location;
+                agent.Objective.Status = ObjectiveStatus.Suspended;
             }
         }
     }

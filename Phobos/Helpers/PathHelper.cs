@@ -4,7 +4,7 @@ namespace Phobos.Helpers;
 
 public static class PathHelper
 {
-    public static Vector3 CalculateForwardPointOnPath(Vector3[] corners, Vector3 position, int cornerIndex, float targetDistanceSqr)
+    public static Vector3 CalcForwardPoint(Vector3[] corners, Vector3 position, int cornerIndex, float targetDistanceSqr)
     {
         if (cornerIndex >= corners.Length)
             return position;

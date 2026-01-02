@@ -5,28 +5,50 @@ namespace Phobos.Helpers;
 
 public class TimePacing(float interval)
 {
-    private float _timeout = Time.time + interval;
+    private float _triggerTime;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Blocked()
     {
-        if (Time.time < _timeout)
+        if (Time.time < _triggerTime)
             return true;
-        
-        _timeout = Time.time + interval;
+
+        _triggerTime = Time.time + interval;
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Allowed()
+    {
+        if (Time.time < _triggerTime)
+            return false;
+
+        _triggerTime = Time.time + interval;
+        return true;
     }
 }
 
-
 public class FramePacing(int interval)
 {
-    private int _counter;
+    private float _triggerCount;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Blocked()
     {
-        _counter++;
-        return _counter % interval != 0;
+        if (Time.time < _triggerCount)
+            return true;
+
+        _triggerCount = Time.frameCount + interval;
+        return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Allowed()
+    {
+        if (Time.time < _triggerCount)
+            return false;
+
+        _triggerCount = Time.frameCount + interval;
+        return true;
     }
 }
