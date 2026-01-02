@@ -5,7 +5,6 @@ using EFT.Interactive;
 using Phobos.Components;
 using Phobos.Diag;
 using Phobos.Entities;
-using Phobos.Helpers;
 using Phobos.Navigation;
 using UnityEngine;
 using UnityEngine.AI;
@@ -15,9 +14,8 @@ namespace Phobos.Systems;
 public class MovementSystem(NavJobExecutor navJobExecutor)
 {
     private const int RetryLimit = 10;
-
-    private const float TargetReachedDistSqr = 5f;
-    private const float LookAheadDistSqr = 1.5f;
+    private const float CornerReachedWalkDistSqr = 0.15f * 0.15f;
+    private const float CornerReachedSprintDistSqr = 0.3f * 0.3f;
 
     private readonly Queue<ValueTuple<Agent, NavJob>> _moveJobs = new(20);
 
@@ -36,7 +34,7 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
                     continue;
                 }
 
-                // Discard the move job if the agent is inactive
+                // Discard the move job if the agent is inactive (Phobos might be deactivated, or the bot died, etc...)
                 if (!agent.IsActive)
                     continue;
 
@@ -51,28 +49,28 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
             // Bail out if the agent is inactive
             if (!agent.IsActive)
             {
-                if (agent.Movement.Target != null)
+                if (agent.Movement.Path != null)
                 {
-                    Reset(agent);
+                    ResetPath(agent.Movement);
                 }
-
                 continue;
             }
 
             UpdateMovement(agent);
         }
     }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Reset(Agent agent)
-    {
-        agent.Movement.Target = null;
-    }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void MoveToByPath(Agent agent, Vector3 destination)
     {
         ScheduleMoveJob(agent, destination);
+        agent.Movement.Retry = 0;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void MoveToDirect(Agent agent, Vector3 destination)
+    {
+        throw new NotImplementedException();
         agent.Movement.Retry = 0;
     }
 
@@ -95,12 +93,15 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
     {
         if (job.Status == NavMeshPathStatus.PathInvalid)
         {
-            agent.Movement.Target = new MovementTarget(job.Destination, true);
+            agent.Movement.Target = job.Target;
+            agent.Movement.Status = NavMeshPathStatus.PathInvalid;
+            ResetPath(agent.Movement);
             return;
         }
-        
-        agent.Movement.Target = new MovementTarget(job.Destination);
-        agent.Bot.Mover.GoToByWay(job.Path, 2);
+
+        AssignTarget(agent.Movement, job);
+
+        agent.Bot.Mover.Stop();
 
         // Debug
         PathVis.Show(job.Path, thickness: 0.1f);
@@ -110,36 +111,45 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
     private void UpdateMovement(Agent agent)
     {
         var bot = agent.Bot;
+        var player = agent.Player;
         var movement = agent.Movement;
 
-        if (movement.Target == null)
-        {
+        if (movement.Path == null || movement.Path.Length == 0 || movement.Status == NavMeshPathStatus.PathInvalid)
             return;
-        }
-        
+
         var moveSpeedMult = 1f;
-        
+
+        // Door handling
         if (HandleDoors(agent))
         {
             moveSpeedMult = 0.25f;
         }
-        
+
+        // Speed
+        var movementSpeed = movement.Speed * moveSpeedMult;
+        var speedDelta = movementSpeed - player.Speed;
+        if (Math.Abs(speedDelta) > 1e-8)
+        {
+            bot.Mover.SetTargetMoveSpeed(movementSpeed);
+            // player.ChangeSpeed(speedDelta);
+        }
+
+        // Sprint
         if (movement.Sprint != bot.Mover.Sprinting)
         {
             bot.Mover.Sprint(movement.Sprint);
+            // player.EnableSprint(movement.Sprint);
         }
 
-        var targetSpeed = movement.Speed * moveSpeedMult;
-        if (Math.Abs(targetSpeed - bot.Mover.DestMoveSpeed) > 1e-2)
-        {
-            bot.SetTargetMoveSpeed(targetSpeed);
-        }
-
-        if (Math.Abs(movement.Pose - bot.Mover.TargetPose) > 1e-2)
+        // Pose
+        var poseDelta = movement.Pose - player.PoseLevel;
+        if (Math.Abs(poseDelta) > 1e-2)
         {
             bot.SetPose(movement.Pose);
+            // player.ChangePose(poseDelta);
         }
 
+        // Prone
         if (bot.BotLay.IsLay != movement.Prone)
         {
             if (movement.Prone)
@@ -152,40 +162,84 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
             }
         }
 
-        var target = movement.Target.Value;
+        // Movement & Steering
+        var currentTarget = movement.Path[movement.CurrentCorner];
+        var moveVector = currentTarget - bot.Position;
 
-        if (target.Failed)
+        var cornerReached = false;
+        var cornerReachedEps = bot.Mover.Sprinting ? CornerReachedSprintDistSqr : CornerReachedWalkDistSqr;
+        var nextCornerIndex = movement.CurrentCorner + 1; 
+        var hasNextCorner = nextCornerIndex < movement.Path.Length;
+        var moveVectorSqrMag = moveVector.sqrMagnitude;
+        
+        if (moveVectorSqrMag <= cornerReachedEps)
         {
-            return;
+            cornerReached = true;
+        }
+        else if (moveVectorSqrMag < 1f && hasNextCorner)
+        {
+            var nextCorner = movement.Path[nextCornerIndex];
+            
+            if (!NavMesh.Raycast(bot.Position, nextCorner, out _, NavMesh.AllAreas))
+            {
+                cornerReached = true;
+            }
         }
         
-        if ((target.Position - bot.Position).sqrMagnitude < TargetReachedDistSqr)
+        if (hasNextCorner)
         {
-            Reset(agent);
-            return;
+            if (cornerReached)
+            {
+                movement.CurrentCorner = nextCornerIndex;
+                currentTarget = movement.Path[movement.CurrentCorner];
+                moveVector = currentTarget - bot.Position;
+            }
+        }
+        else
+        {
+            if (movement.Status == NavMeshPathStatus.PathPartial)
+            {
+                if (movement.Retry >= RetryLimit)
+                {
+                    movement.Status = NavMeshPathStatus.PathInvalid;
+                    ResetPath(movement);
+                    return;
+                }
+                
+                ResetPath(movement);
+                MoveRetry(agent, movement.Target);
+                return;
+            }
+
+            if (cornerReached)
+            {
+                ResetPath(movement);
+                return;
+            }
         }
 
-        // Handle the case where we aren't following a path for some reason. The usual reason is that the path was partial. 
-        if (movement.ActualPath == null)
-        {
-            // Try to find a new path.
-            if (movement.Retry < RetryLimit)
-            {
-                MoveRetry(agent, target.Position);
-            }
-            else
-            {
-                movement.Target = new MovementTarget(target.Position, true);
-            }
-            
-            return;
-        }
+        moveVector.Normalize();
+
+        var moveDir = CalcMoveDirection(moveVector, player.Rotation);
+        player.CharacterController.SetSteerDirection(moveVector);
+        player.Move(moveDir);
+        bot.AimingManager.CurrentAiming.Move(player.Speed);
+
+        bot.AIData.SetPosToVoxel(bot.Position);
+        bot.Steering.LookToDirection(moveVector, 360f);
 
         // Move these out into a LookSystem
-        var lookPoint = PathHelper.CalculateForwardPointOnPath(
-            movement.ActualPath.Vector3_0, bot.Position, movement.ActualPath.CurIndex, LookAheadDistSqr
-        ) + 1.5f * Vector3.up;
-        bot.Steering.LookToPoint(lookPoint, 360f);
+        // var lookPoint = PathHelper.CalculateForwardPointOnPath(
+        //     movement.ActualPath.Vector3_0, bot.Position, movement.ActualPath.CurIndex, LookAheadDistSqr
+        // ) + 1.5f * Vector3.up;
+        // bot.Steering.LookToPoint(lookPoint, 360f);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector2 CalcMoveDirection(Vector3 direction, Vector2 rotation)
+    {
+        var vector = Quaternion.Euler(0f, 0f, rotation.x) * new Vector2(direction.x, direction.z);
+        return new Vector2(vector.x, vector.y);
     }
 
     private static bool HandleDoors(Agent agent)
@@ -194,20 +248,45 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
 
         if (currentVoxel == null) return false;
 
+        if (currentVoxel.DoorLinks.Count == 0)
+            return false;
+
         var foundDoors = false;
-        
+
         for (var i = 0; i < currentVoxel.DoorLinks.Count; i++)
         {
             var door = currentVoxel.DoorLinks[i].Door;
-            var shouldOpen = door.enabled && door.gameObject.activeInHierarchy && door.Operatable && (door.DoorState & EDoorState.Open) == 0;
+            var shouldOpen = door.enabled && door.Operatable && door.DoorState != EDoorState.Open &&
+                             (door.transform.position - agent.Bot.Position).sqrMagnitude < 9f;
 
-            if (!shouldOpen || !((door.transform.position - agent.Bot.Position).sqrMagnitude < 9f)) continue;
+            if (!shouldOpen) continue;
+
+            if (door.Collider != null)
+            {
+                agent.Bot.GetPlayer.MovementContext.IgnoreInteractionCollision(door.Collider, true);
+            }
             
-            foundDoors = true;
             door.Open();
+            foundDoors = true;
         }
 
         return foundDoors;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ResetPath(Movement movement)
+    {
+        movement.Path = null;
+        movement.CurrentCorner = 0;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AssignTarget(Movement movement, NavJob job)
+    {
+        movement.Target = job.Target;
+        movement.Path = job.Path;
+        movement.Status = job.Status;
+        movement.CurrentCorner = 0;
     }
 
     // private static bool ShouldSprint(Actor actor)
