@@ -257,7 +257,8 @@ public class LocationSystem
         DebugLog.Write($"Requesting location around {requestCoords} | {worldPos} with previous coords {previousCoords}");
 
         _tempCoordsBuffer.Clear();
-        var advection = Vector2.zero;
+        var preferredDirection = Vector2.zero;
+        var advectionScaling = (1f - _advectionFactor) * Plugin.RaidAdvection.Value;
 
         // First pass: determine preferential direction
         for (var dx = -1; dx <= 1; dx++)
@@ -280,22 +281,22 @@ public class LocationSystem
                 var vacancyVector = -1 * cell.Congestion * ((Vector2)direction).normalized;
                 var momentumVector = (Vector2)(requestCoords - previousCoords);
                 momentumVector.Normalize();
-                var advectionVector = (1f - _advectionFactor) * Plugin.RaidAdvection.Value * _advectionField[coords.x, coords.y];
+                var advectionVector = advectionScaling * _advectionField[coords.x, coords.y];
                 var randomization = Random.insideUnitCircle;
 
-                advection += vacancyVector + momentumVector + advectionVector + randomization;
+                preferredDirection += vacancyVector + momentumVector + advectionVector + randomization;
                 _tempCoordsBuffer.Add(direction);
             }
         }
 
-        if (advection == Vector2.zero)
+        if (preferredDirection == Vector2.zero)
         {
             // We can't go to any neighboring cell for some reason, grab something from the current cell, and if that fails too, search map-wide. 
             var currentCell = _cells[requestCoords.x, requestCoords.y];
             return currentCell.HasLocations ? AssignLocation(requestCoords) : RequestFar();
         }
 
-        advection.Normalize();
+        preferredDirection.Normalize();
 
         Vector2Int? bestNeighbor = null;
         var bestAngle = float.MaxValue;
@@ -303,15 +304,15 @@ public class LocationSystem
         // Second pass: find the neighboring cell closest to the picked direction
         for (var i = 0; i < _tempCoordsBuffer.Count; i++)
         {
-            var direction = _tempCoordsBuffer[i];
-            var angle = Vector2.Angle(direction, advection);
+            var candidateDirection = _tempCoordsBuffer[i];
+            var angle = Vector2.Angle(candidateDirection, preferredDirection);
 
-            DebugLog.Write($"Direction {direction} -> {advection} angle: {angle}");
+            DebugLog.Write($"Direction {candidateDirection} -> {preferredDirection} angle: {angle}");
 
             if (angle >= bestAngle) continue;
 
             bestAngle = angle;
-            bestNeighbor = requestCoords + direction;
+            bestNeighbor = requestCoords + candidateDirection;
         }
 
         DebugLog.Write($"Best pick is {bestNeighbor} with angle: {bestAngle}");
