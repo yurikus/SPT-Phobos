@@ -9,6 +9,7 @@ public class Agent(int id, BotOwner bot, float[] taskScores) : Entity(id, taskSc
 {
     public bool IsActive;
     public bool IsLeader;
+    public Squad Squad;
     
     public readonly BotOwner Bot = bot;
     public readonly Movement Movement = new();

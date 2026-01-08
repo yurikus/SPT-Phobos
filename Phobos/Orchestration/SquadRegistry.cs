@@ -35,10 +35,12 @@ public class SquadRegistry(SquadData squadData, StrategyManager strategyManager)
             DebugLog.Write($"Registered new {squad}");
             
             squad.Leader = agent;
+            squad.Leader.IsLeader = true;
             DebugLog.Write($"{squad} assigned new leader {squad.Leader}");
         }
 
         squad.AddAgent(agent);
+        agent.Squad = squad;
         DebugLog.Write($"Added {agent} to {squad} with {squad.Size} members");
     }
 
@@ -56,8 +58,8 @@ public class SquadRegistry(SquadData squadData, StrategyManager strategyManager)
             if (agent != squad.Leader) return;
             
             squad.Leader = squad.Members[^1];
+            squad.Leader.IsLeader = true;
             DebugLog.Write($"{squad} assigned new leader {squad.Leader}");
-
             return;
         }
 
