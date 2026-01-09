@@ -84,7 +84,7 @@ public class Plugin : BaseUnityPlugin
         };
         
         // TODO: Revert to 19
-        BrainManager.AddCustomLayer(typeof(PhobosLayer), brains,50000);
+        BrainManager.AddCustomLayer(typeof(PhobosLayer), brains,int.MaxValue);
 
         // This layer makes scavs stand still doing bugger all, remove it
         BrainManager.RemoveLayer("AssaultEnemyFar", brains);

@@ -19,13 +19,15 @@ public class Movement
     public bool Sprint = false;
     public bool Prone = false;
 
+    public NavGraphVoxelSimple DoorVoxel;
+
     public bool IsValid
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => Path != null;
     }
     
-    public readonly TimePacing VoxelUpdatePacing = new(0.5f);
+    public readonly TimePacing VoxelUpdatePacing = new(0.25f);
 
     public override string ToString()
     {

@@ -42,6 +42,7 @@ public class PhobosManager
     public readonly MovementSystem MovementSystem;
     public readonly LookSystem LookSystem;
     public readonly LocationSystem LocationSystem;
+    public readonly DoorSystem DoorSystem;
 
     public readonly ActionManager ActionManager;
     public readonly StrategyManager StrategyManager;
@@ -60,6 +61,7 @@ public class PhobosManager
         MovementSystem = new MovementSystem(NavJobExecutor);
         LookSystem = new LookSystem();
         LocationSystem = new LocationSystem(botsController);
+        DoorSystem = new  DoorSystem();
         
         RegisterComponents();
         var actions = RegisterActions();

@@ -1,7 +1,10 @@
-﻿using System.Text;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using Comfort.Common;
 using DrakiaXYZ.BigBrain.Brains;
 using EFT;
+using EFT.Interactive;
 using Phobos.Diag;
 using Phobos.Entities;
 using Phobos.Orchestration;
@@ -27,25 +30,38 @@ internal class DummyAction(BotOwner botOwner) : CustomLogic(botOwner)
 public class PhobosLayer : CustomLayer
 {
     private const string LayerName = "PhobosLayer";
-    private const int ActivationDelay = 5; 
+    private const int ActivationDelay = 5;
 
     private int _activationFrame;
 
     private readonly PhobosManager _phobos;
     private readonly Agent _agent;
 
-    
+
     public PhobosLayer(BotOwner botOwner, int priority) : base(botOwner, priority)
     {
         // Have to turn this off otherwise bots will be deactivated far away.
         botOwner.StandBy.CanDoStandBy = false;
         botOwner.StandBy.Activate();
-        
+
         _phobos = Singleton<PhobosManager>.Instance;
         _agent = _phobos.AddAgent(botOwner);
-        
+
         botOwner.Brain.BaseBrain.OnLayerChangedTo += OnLayerChanged;
         botOwner.GetPlayer.OnPlayerDead += OnDead;
+
+        // Door hack
+        var botCollider = _agent.Bot.GetPlayer.CharacterController.GetCollider();
+        var pomCollider = _agent.Bot.GetPlayer.POM.Collider;
+        
+        var doors = _phobos.DoorSystem.Doors;
+        
+        for (var i = 0; i < doors.Length; i++)
+        {
+            var door = doors[i];
+            Physics.IgnoreCollision(pomCollider, door.Collider);
+            EFTPhysicsClass.IgnoreCollision(botCollider, door.Collider);
+        }
     }
 
     private void OnDead(Player player, IPlayer lastAggressor, DamageInfoStruct damageInfo, EBodyPart part)
@@ -66,10 +82,10 @@ public class PhobosLayer : CustomLayer
             DebugLog.Write($"Deactivating {_agent}");
             _agent.IsActive = false;
         }
-        
+
         DebugLog.Write($"{_agent} layer changed to: {layer.Name()} priority: {layer.Priority}");
     }
-    
+
     public override string GetName()
     {
         return LayerName;
@@ -96,7 +112,7 @@ public class PhobosLayer : CustomLayer
             DebugLog.Write($"Activating {_agent}");
             _agent.IsActive = true;
         }
-        
+
         return false;
     }
 
@@ -113,11 +129,11 @@ public class PhobosLayer : CustomLayer
         GenerateUtilityReport(sb);
         // sb.AppendLine($"Standby: {BotOwner.StandBy.StandByType} CanDoStandBy: {BotOwner.StandBy.CanDoStandBy}");
     }
-    
+
     private void GenerateUtilityReport(StringBuilder sb)
     {
         var actions = _phobos.ActionManager.Tasks;
-        
+
         for (var i = 0; i < actions.Length; i++)
         {
             var action = actions[i];

@@ -5,6 +5,7 @@ using EFT.Interactive;
 using Phobos.Components;
 using Phobos.Diag;
 using Phobos.Entities;
+using Phobos.Helpers;
 using Phobos.Navigation;
 using UnityEngine;
 using UnityEngine.AI;
@@ -17,7 +18,7 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
     private const float CornerReachedWalkDistSqr = 0.35f * 0.35f;
     private const float CornerReachedSprintDistSqr = 0.6f * 0.6f;
     private const float TargetReachedDistSqr = 1f;
-
+    
     private readonly Queue<ValueTuple<Agent, NavJob>> _moveJobs = new(20);
 
     public void Update(List<Agent> liveAgents)
@@ -118,6 +119,11 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
         if (movement.Path == null || movement.Path.Length == 0 || movement.Status == NavMeshPathStatus.PathInvalid)
             return;
 
+        if (movement.VoxelUpdatePacing.Allowed())
+        {
+            bot.AIData.SetPosToVoxel(bot.Position);
+        }
+
         var moveSpeedMult = 1f;
 
         // Door handling
@@ -162,7 +168,7 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
                 bot.BotLay.GetUp(true);
             }
         }
-        
+
         // Path handling
         var moveVector = movement.Path[movement.CurrentCorner] - bot.Position;
         var nextCornerIndex = movement.CurrentCorner + 1;
@@ -219,17 +225,24 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
             }
         }
 
+        var closestPointOnPath = PathHelper.ClosestPointOnLine(
+            movement.Path[Math.Max(0, movement.CurrentCorner - 1)],
+            movement.Path[movement.CurrentCorner],
+            bot.Position
+        );
+
+        // A spring to pull the bot back to the path if it veers off
+        var pathDeviationSpring = closestPointOnPath - bot.Position;
+        
         // Steering
         moveVector.Normalize();
+        moveVector += pathDeviationSpring;
+        moveVector.Normalize();
+        
         var moveDir = CalcMoveDirection(moveVector, player.Rotation);
         player.CharacterController.SetSteerDirection(moveVector);
         player.Move(moveDir);
         bot.AimingManager.CurrentAiming.Move(player.Speed);
-
-        if (movement.VoxelUpdatePacing.Allowed())
-        {
-            bot.AIData.SetPosToVoxel(bot.Position);
-        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -253,15 +266,11 @@ public class MovementSystem(NavJobExecutor navJobExecutor)
         for (var i = 0; i < currentVoxel.DoorLinks.Count; i++)
         {
             var door = currentVoxel.DoorLinks[i].Door;
+
             var shouldOpen = door.enabled && door.Operatable && door.DoorState != EDoorState.Open &&
                              (door.transform.position - agent.Bot.Position).sqrMagnitude < 9f;
 
             if (!shouldOpen) continue;
-
-            if (door.Collider != null)
-            {
-                agent.Bot.GetPlayer.MovementContext.IgnoreInteractionCollision(door.Collider, true);
-            }
 
             door.Open();
             foundDoors = true;
