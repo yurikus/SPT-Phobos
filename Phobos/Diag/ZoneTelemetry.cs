@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Comfort.Common;
+using EFT;
 using Phobos.Entities;
 using Phobos.Orchestration;
 using Phobos.Systems;
@@ -17,6 +18,7 @@ public class ZoneTelemetry : MonoBehaviour
     private readonly Color _highCongestionColor = new(0.8f, 0.2f, 0.2f, 0.7f);
     private readonly Color _agentColor = Color.cyan;
     private readonly Color _agentLeaderColor = Color.magenta;
+    private readonly Color _cameraColor = Color.white;
     private readonly Color _zoneColor = Color.blue;
     private readonly Color _gridLineColor = new(0.3f, 0.3f, 0.3f, 0.8f);
 
@@ -46,8 +48,8 @@ public class ZoneTelemetry : MonoBehaviour
     }
 
     private void RenderGrid(
-        List<Agent> agents, Cell[,] cells, Vector2[,] advectionField, List<LocationSystem.Zone> zones, Vector2Int gridSize, Vector2 worldMin,
-        Vector2 worldMax
+        List<Agent> agents, Cell[,] cells, Vector2[,] advectionField, List<LocationSystem.Zone> zones,
+        Vector2Int gridSize, Vector2 worldMin, Vector2 worldMax
     )
     {
         if (cells == null || gridSize.x == 0 || gridSize.y == 0)
@@ -110,6 +112,9 @@ public class ZoneTelemetry : MonoBehaviour
 
         // Draw agents
         DrawAgents(agents, worldMin, worldMax, gridRect, displayWidth, displayHeight);
+        
+        // Draw players
+        DrawCamera(worldMin, worldMax, gridRect, displayWidth, displayHeight);
 
         // Draw border
         DrawRectOutline(gridRect, Color.white, 2f);
@@ -140,6 +145,27 @@ public class ZoneTelemetry : MonoBehaviour
 
             DrawDot(new Vector2(screenX, screenY), AgentDotRadius, color);
         }
+    }
+    
+    private void DrawCamera(Vector2 worldMin, Vector2 worldMax, Rect gridRect, float displayWidth, float displayHeight)
+    {
+        var camera = CameraClass.Instance?.Camera;
+        
+        if (camera == null) return;
+        
+        var pos = camera.transform.position;
+        
+        var worldWidth = worldMax.x - worldMin.x;
+        var worldHeight = worldMax.y - worldMin.y;
+
+        // Convert world position to grid display position
+        var normX = (pos.x - worldMin.x) / worldWidth;
+        var normY = (pos.z - worldMin.y) / worldHeight;
+
+        var screenX = gridRect.x + normX * displayWidth;
+        var screenY = gridRect.y + (1f - normY) * displayHeight; // Flip Y
+
+        DrawDot(new Vector2(screenX, screenY), AgentDotRadius, _cameraColor);
     }
 
     private Color GetCongestionColor(int congestion)
@@ -190,6 +216,8 @@ public class ZoneTelemetry : MonoBehaviour
         const float lineHeight = 25f;
         var y = rect.y + 25;
 
+        DrawLegendItem(new Rect(rect.x + 10, y, 20, 20), _zoneColor, "Zone Spot");
+        y += lineHeight;
         DrawLegendItem(new Rect(rect.x + 10, y, 20, 20), _emptyCellColor, "Empty");
         y += lineHeight;
         DrawLegendItem(new Rect(rect.x + 10, y, 20, 20), _lowCongestionColor, $"Low (1-{LowCongestionThreshold - 1})");
@@ -199,6 +227,10 @@ public class ZoneTelemetry : MonoBehaviour
         DrawLegendItem(new Rect(rect.x + 10, y, 20, 20), _highCongestionColor, $"High ({MediumCongestionThreshold}+)");
         y += lineHeight;
         DrawLegendItem(new Rect(rect.x + 10, y, 20, 20), _agentColor, "Agents");
+        y += lineHeight;
+        DrawLegendItem(new Rect(rect.x + 10, y, 20, 20), _agentLeaderColor, "Squad Leaders");
+        y += lineHeight;
+        DrawLegendItem(new Rect(rect.x + 10, y, 20, 20), _cameraColor, "Camera");
     }
 
     private static void DrawLegendItem(Rect colorRect, Color color, string label)

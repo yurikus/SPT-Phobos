@@ -207,7 +207,6 @@ public class LocationSystem
                 builtinZone.Decay
             );
             _zones.Add(zone);
-            DebugLog.Write($"Added builtin zone {botZone.NameZone}: {zone}");
         }
 
         for (var i = 0; i < _zoneConfig.Value.CustomZones.Count; i++)
@@ -228,16 +227,13 @@ public class LocationSystem
                 customZone.Decay
             );
             _zones.Add(zone);
-            DebugLog.Write($"Added custom zone {zone}");
         }
-
-        DebugLog.Write($"Collected {_zones.Count} zones");
 
         for (var x = 0; x < _gridSize.x; x++)
         {
             for (var y = 0; y < _gridSize.y; y++)
             {
-                var cellCoords = new Vector2Int(x, y);
+                var cellCoords = new Vector2(x, y);
 
                 _advectionField[x, y] = Vector2.zero;
 
@@ -245,15 +241,16 @@ public class LocationSystem
                 for (var i = 0; i < _zones.Count; i++)
                 {
                     var zone = _zones[i];
+                    var zoneCoords = (Vector2)zone.Coords;
                     // Get the world space distance between the hotspot and the current cell
-                    var worldDist = (CellToWorld(zone.Coords) - CellToWorld(cellCoords)).magnitude;
+                    var worldDist = Vector2.Distance(zoneCoords, cellCoords) * _cellSize;
                     // The force is the cartesian distance to the hotspot normalized by the hotspot radius and clamped 
                     var force = Mathf.Clamp01(1f - worldDist / (zone.Radius * Plugin.ZoneRadiusScale.Value));
                     // Apply a decay factor (1 is linear, <1 sublinear and >1 exponential).
                     force = Mathf.Pow(force, zone.Decay * Plugin.ZoneRadiusDecayScale.Value);
                     force *= zone.Force * Plugin.ZoneForceScale.Value;
                     // Accumulate the advection
-                    _advectionField[x, y] += force * ((Vector2)(zone.Coords - cellCoords)).normalized;
+                    _advectionField[x, y] += force * (zoneCoords - cellCoords).normalized;
                 }
             }
         }
