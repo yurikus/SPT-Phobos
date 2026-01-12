@@ -382,8 +382,6 @@ public class LocationSystem
 
                 if (!CheckPathing(cellCoords, hit.position))
                     continue;
-
-                DebugGizmos.Line(hit.position - 500f * Vector3.up, hit.position + 500f * Vector3.up, expiretime: 0f);
                 
                 cell.Locations.Add(BuildSyntheticLocation(hit.position));
                 pointsFound++;
