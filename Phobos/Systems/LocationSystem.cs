@@ -236,8 +236,6 @@ public class LocationSystem
             var candidateDirection = _tempCoordsBuffer[i];
             var angle = Vector2.Angle(candidateDirection, prefDirection);
 
-            DebugLog.Write($"Direction {prefDirection} -> {candidateDirection} angle: {angle}");
-
             if (angle >= bestAngle) continue;
 
             bestAngle = angle;
@@ -339,7 +337,7 @@ public class LocationSystem
         }
     }
 
-    public Location RequestFar()
+    private Location RequestFar()
     {
         var pick = _coordsByCongestion.Min;
         DebugLog.Write($"Requesting far cell {pick}");
