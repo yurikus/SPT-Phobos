@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using EFT;
 using Phobos.Components;
+using UnityEngine;
 
 namespace Phobos.Entities;
 
@@ -11,6 +12,7 @@ public class Agent(int id, BotOwner bot, float[] taskScores) : Entity(id, taskSc
     public Squad Squad;
     
     public readonly BotOwner Bot = bot;
+    public readonly Player Player = bot.Mover.Player;
     
     public readonly Movement Movement = new();
     public readonly Stuck Stuck = new();
@@ -18,11 +20,14 @@ public class Agent(int id, BotOwner bot, float[] taskScores) : Entity(id, taskSc
     
     public readonly Objective Objective = new();
 
-    public Player Player
+    private readonly BifacialTransform _bodyTransform = bot.Mover.Player.PlayerBones.BodyTransform;
+
+    public Vector3 Position
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => Bot.Mover.Player;
+        get => _bodyTransform.position;
     }
+
     
     public override string ToString()
     {

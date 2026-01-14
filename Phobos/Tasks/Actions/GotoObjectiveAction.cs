@@ -31,7 +31,7 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
 
             // Baseline utility is 0.5f, boosted up to 0.65f as the bot gets nearer the objective. Once within the objective radius, the
             // utility falls off sharply.
-            var distSqr = (objective.Location.Position - agent.Bot.Position).sqrMagnitude;
+            var distSqr = (objective.Location.Position - agent.Position).sqrMagnitude;
 
             var utilityBoostFactor = Mathf.InverseLerp(UtilityBoostMaxDistSqr, ObjectiveEpsDistSqr, distSqr);
             var utilityDecay = Mathf.InverseLerp(0f, ObjectiveEpsDistSqr, distSqr);
@@ -62,7 +62,7 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
 
             // Only fail the objective if the movement fails outside the objective zone.  
             if (agent.Movement.Status == NavMeshPathStatus.PathInvalid &&
-                (objective.Location.Position - agent.Bot.Position).sqrMagnitude > ObjectiveEpsDistSqr)
+                (objective.Location.Position - agent.Position).sqrMagnitude > ObjectiveEpsDistSqr)
             {
                 objective.Status = ObjectiveStatus.Failed;
             }
@@ -92,7 +92,6 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
             }
         }
 
-        movementSystem.ResetGait(entity);
         movementSystem.MoveToByPath(entity, objective.Location.Position);
     }
 }

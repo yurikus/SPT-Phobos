@@ -135,7 +135,7 @@ public class ZoneTelemetry : MonoBehaviour
         for (var i = 0; i < agents.Count; i++)
         {
             var agent = agents[i];
-            var pos = agent.Bot.Position;
+            var pos = agent.Position;
 
             // Convert world position to grid display position
             var normX = (pos.x - worldMin.x) / worldWidth;

@@ -125,6 +125,7 @@ public class PhobosLayer : CustomLayer
         sb.AppendLine($"{_agent} Task: {_agent.TaskAssignment.Task}");
         sb.AppendLine(_agent.Movement.ToString());
         sb.AppendLine(_agent.Stuck.ToString());
+        sb.AppendLine($"{_agent.Objective}");
         sb.AppendLine("*** Generic ***");
         sb.AppendLine($"HasEnemy: {BotOwner.Memory.HaveEnemy} UnderFire: {BotOwner.Memory.IsUnderFire}");
         sb.AppendLine($"Pose: {pose} DestSpeed: {destSpeed} ActualSpeed: {actualSpeed}");

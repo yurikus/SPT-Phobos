@@ -18,7 +18,7 @@ public class MovementSystem
     private const int RetryLimit = 10;
     private const float CornerReachedWalkDistSqr = 0.35f * 0.35f;
     private const float CornerReachedSprintDistSqr = 0.6f * 0.6f;
-    private const float TargetReachedDistSqr = 1f;
+    private const float TargetReachedDistSqr = 1.5f * 1.5f;
 
     private readonly NavJobExecutor _navJobExecutor;
     private readonly Queue<ValueTuple<Agent, NavJob>> _moveJobs;
@@ -63,7 +63,7 @@ public class MovementSystem
             {
                 if (agent.Movement.IsValid)
                 {
-                    ResetPath(agent.Movement);
+                    ResetPath(agent);
                 }
 
                 continue;
@@ -77,6 +77,8 @@ public class MovementSystem
     public void MoveToByPath(Agent agent, Vector3 destination)
     {
         ScheduleMoveJob(agent, destination);
+        ResetGait(agent);
+        ResetPath(agent);
         agent.Movement.Retry = 0;
     }
 
@@ -87,7 +89,7 @@ public class MovementSystem
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void ResetGait(Agent agent)
+    private static void ResetGait(Agent agent)
     {
         agent.Movement.Pose = 1f;
         agent.Movement.Speed = 1f;
@@ -98,7 +100,7 @@ public class MovementSystem
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void MoveRetry(Agent agent, Vector3 destination)
     {
-        ResetPath(agent.Movement);
+        ResetPath(agent);
 
         if (agent.Movement.Retry >= RetryLimit)
         {
@@ -113,7 +115,7 @@ public class MovementSystem
     private void ScheduleMoveJob(Agent agent, Vector3 destination)
     {
         // Queues up a pathfinding job, once that's ready, we move the bot along the path.
-        var job = _navJobExecutor.Submit(agent.Bot.Position, destination);
+        var job = _navJobExecutor.Submit(agent.Position, destination);
         _moveJobs.Enqueue((agent, job));
     }
 
@@ -124,7 +126,7 @@ public class MovementSystem
         {
             agent.Movement.Target = job.Target;
             agent.Movement.Status = NavMeshPathStatus.PathInvalid;
-            ResetPath(agent.Movement);
+            ResetPath(agent);
             return;
         }
 
@@ -148,7 +150,7 @@ public class MovementSystem
 
         if (movement.VoxelUpdatePacing.Allowed())
         {
-            bot.AIData.SetPosToVoxel(bot.Position);
+            bot.AIData.SetPosToVoxel(agent.Position);
         }
 
         var moveSpeedMult = 1f;
@@ -206,7 +208,7 @@ public class MovementSystem
         }
 
         // Path handling
-        var moveVector = movement.Path[movement.CurrentCorner] - bot.Position;
+        var moveVector = movement.Path[movement.CurrentCorner] - agent.Position;
         var nextCornerIndex = movement.CurrentCorner + 1;
         var hasNextCorner = nextCornerIndex < movement.Path.Length;
 
@@ -224,7 +226,7 @@ public class MovementSystem
             {
                 var nextCorner = movement.Path[nextCornerIndex];
 
-                if (!NavMesh.Raycast(bot.Position, nextCorner, out _, NavMesh.AllAreas))
+                if (!NavMesh.Raycast(agent.Position, nextCorner, out _, NavMesh.AllAreas))
                 {
                     cornerReached = true;
                 }
@@ -233,24 +235,23 @@ public class MovementSystem
             if (cornerReached)
             {
                 movement.CurrentCorner = nextCornerIndex;
-                moveVector = movement.Path[movement.CurrentCorner] - bot.Position;
+                moveVector = movement.Path[movement.CurrentCorner] - agent.Position;
             }
         }
         else
         {
-            var pathEndInProximity = (movement.Path[movement.CurrentCorner] - bot.Position).sqrMagnitude <= TargetReachedDistSqr;
-            
-            // If the path is partial AND doesn't reach far enough, recalculate
-            if (movement.Status == NavMeshPathStatus.PathPartial && !pathEndInProximity)
+            // Sometimes the last movement corner might not be exactly on the actual target. Add an extra check to short circuit.
+            if ((movement.Target - agent.Player.Position).sqrMagnitude <= TargetReachedDistSqr
+                || (movement.Path[movement.CurrentCorner] - agent.Player.Position).sqrMagnitude <= TargetReachedDistSqr)
             {
-                MoveRetry(agent, movement.Target);
+                ResetPath(agent);
                 return;
             }
-
-            // Sometimes the last movement corner might not be exactly on the actual target. Add an extra check to short circuit.
-            if ((movement.Target - bot.Position).sqrMagnitude <= TargetReachedDistSqr || pathEndInProximity)
+            
+            // If the path is partial AND doesn't reach far enough, recalculate
+            if (movement.Status == NavMeshPathStatus.PathPartial)
             {
-                ResetPath(movement);
+                MoveRetry(agent, movement.Target);
                 return;
             }
         }
@@ -258,11 +259,11 @@ public class MovementSystem
         var closestPointOnPath = PathHelper.ClosestPointOnLine(
             movement.Path[Math.Max(0, movement.CurrentCorner - 1)],
             movement.Path[movement.CurrentCorner],
-            bot.Position
+            agent.Position
         );
 
         // A spring to pull the bot back to the path if it veers off
-        var pathDeviationSpring = closestPointOnPath - bot.Position;
+        var pathDeviationSpring = closestPointOnPath - agent.Position;
 
         // We can't move vertically, don't bother compensating for this
         pathDeviationSpring.y = 0;
@@ -271,6 +272,8 @@ public class MovementSystem
         moveVector.Normalize();
         moveVector += pathDeviationSpring;
         moveVector.Normalize();
+        
+        DebugGizmos.Line(agent.Position, agent.Position + moveVector, color: Color.red, expiretime:0.5f);
 
         var moveDir = CalcMoveDirection(moveVector, player.Rotation);
         player.CharacterController.SetSteerDirection(moveVector);
@@ -301,7 +304,7 @@ public class MovementSystem
             var door = currentVoxel.DoorLinks[i].Door;
 
             var shouldOpen = door.enabled && door.Operatable && door.DoorState != EDoorState.Open &&
-                             (door.transform.position - agent.Bot.Position).sqrMagnitude < 9f;
+                             (door.transform.position - agent.Position).sqrMagnitude < 9f;
 
             if (!shouldOpen) continue;
 
@@ -313,10 +316,10 @@ public class MovementSystem
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ResetPath(Movement movement)
+    private static void ResetPath(Agent agent)
     {
-        movement.Path = null;
-        movement.CurrentCorner = 0;
+        agent.Movement.Path = null;
+        agent.Movement.CurrentCorner = 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -335,7 +338,7 @@ public class MovementSystem
     //     var isOutside = bot.AIData.EnvironmentId == 0;
     //     var isAbleToSprint = !bot.Mover.NoSprint && bot.GetPlayer.MovementContext.CanSprint;
     //     var isPathSmooth = CalculatePathAngleJitter(
-    //         bot.Position,
+    //         agent.Position,
     //         actor.Movement.ActualPath.Vector3_0,
     //         actor.Movement.ActualPath.CurIndex
     //     ) < 15f;
@@ -378,7 +381,7 @@ public class MovementSystem
             stuck.LastUpdate = Time.time;
 
             // Update positions
-            var currentPos = agent.Bot.Position;
+            var currentPos = agent.Position;
             var lastPos = stuck.LastPosition;
             stuck.LastPosition = currentPos;
             
@@ -453,7 +456,7 @@ public class MovementSystem
                 case StuckState.Teleport when stuck.Timer >= FailedDelay:
                     DebugLog.Write($"{agent} is stuck, giving up.");
                     stuck.State = StuckState.Failed;
-                    ResetPath(agent.Movement);
+                    ResetPath(agent);
                     agent.Movement.Status = NavMeshPathStatus.PathInvalid;
                     break;
                 case StuckState.Failed:
@@ -477,7 +480,7 @@ public class MovementSystem
                 }
 
                 // Don't allow teleports when a human player is closer than 10m
-                if ((player.Position - agent.Bot.Position).sqrMagnitude <= 100f)
+                if ((player.Position - agent.Position).sqrMagnitude <= 100f)
                 {
                     DebugLog.Write($"{agent} teleport proximity check failed: {player.Profile.Nickname} too close");
                     return;

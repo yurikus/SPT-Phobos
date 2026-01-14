@@ -10,8 +10,8 @@ namespace Phobos.Systems;
 
 public class LookSystem
 {
-    private const float MoveLookAheadDistSqr = 1f;
-    private const float MoveTargetProxmityDistSqr = 5f * 5f;
+    private const float MoveLookAheadDistSqr = 1.5f;
+    private const float MoveTargetProxmityDistSqr = 1f;
 
     public static void Update(List<Agent> liveAgents)
     {
@@ -44,19 +44,12 @@ public class LookSystem
                         break;
                 }
             }
-            else if (movement.IsValid)
+            else if (movement.IsValid && (movement.Path[^1] - agent.Position).sqrMagnitude > MoveTargetProxmityDistSqr)
             {
-                if ((movement.Target - bot.Position).sqrMagnitude > MoveTargetProxmityDistSqr)
-                {
-                    var fwdPoint = PathHelper.CalcForwardPoint(
-                        movement.Path, bot.Position, movement.CurrentCorner, MoveLookAheadDistSqr
-                    ) + 1.25f * Vector3.up;
-                    bot.Steering.LookToPoint(fwdPoint, 540f);
-                }
-                else
-                {
-                    bot.Steering.LookToMovingDirection();
-                }
+                var fwdPoint = PathHelper.CalcForwardPoint(movement.Path, agent.Position, movement.CurrentCorner, MoveLookAheadDistSqr);
+                var lookDirection = fwdPoint - agent.Position;
+                lookDirection.Normalize();
+                bot.Steering.LookToDirection(lookDirection, 540f);
             }
         }
     }
