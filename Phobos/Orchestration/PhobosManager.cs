@@ -44,7 +44,7 @@ public class PhobosManager
     
     public readonly MovementSystem MovementSystem;
     public readonly LookSystem LookSystem;
-    public readonly LocationSystem LocationSystem;
+    public readonly AssignmentSystem AssignmentSystem;
     public readonly DoorSystem DoorSystem;
 
     public readonly ActionManager ActionManager;
@@ -82,7 +82,7 @@ public class PhobosManager
         
         MovementSystem = new MovementSystem(NavJobExecutor, HumanPlayers);
         LookSystem = new LookSystem();
-        LocationSystem = new LocationSystem(MapId, Config, botsController);
+        AssignmentSystem = new AssignmentSystem(MapId, Config, botsController);
         DoorSystem = new  DoorSystem();
         
         RegisterComponents();
@@ -153,7 +153,7 @@ public class PhobosManager
     {
         var strategies = new DefinitionRegistry<Task<Squad>>();
         
-        strategies.Add(new GotoObjectiveStrategy(SquadData, LocationSystem, 0.25f));
+        strategies.Add(new GotoObjectiveStrategy(SquadData, AssignmentSystem, 0.25f));
 
         OnRegisterStrategies?.Invoke(strategies);
 

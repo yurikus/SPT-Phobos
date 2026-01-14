@@ -7,7 +7,7 @@ using Phobos.Tasks.Actions;
 
 namespace Phobos.Tasks.Strategies;
 
-public class GotoObjectiveStrategy(SquadData squadData, LocationSystem locationSystem, float hysteresis) : Task<Squad>(hysteresis)
+public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignmentSystem, float hysteresis) : Task<Squad>(hysteresis)
 {
     public override void UpdateScore(int ordinal)
     {
@@ -50,16 +50,11 @@ public class GotoObjectiveStrategy(SquadData squadData, LocationSystem locationS
                 }
             }
 
-            
             if (squad.Objective.Location != null && finishedCount != squad.Size) continue;
-
-            if (squad.Objective.Location != null)
-            {
-                locationSystem.Return(squad);
-                DebugLog.Write($"{squad} returned objective {squad.Objective.Location}");
-            }
             
-            var newLocation = locationSystem.RequestNear(squad, squad.Leader.Bot.Position, squad.Objective.LocationPrevious);
+            // Always return any current assignment first to ensure that we don't incorporate advection from our own assignment into the next pick
+            assignmentSystem.Return(squad);
+            var newLocation = assignmentSystem.RequestNear(squad, squad.Leader.Bot.Position, squad.Objective.LocationPrevious);
 
             if (newLocation == null)
             {
@@ -77,7 +72,7 @@ public class GotoObjectiveStrategy(SquadData squadData, LocationSystem locationS
     public override void Deactivate(Entity entity)
     {
         // Ensure that we return any assignments
-        locationSystem.Return(entity);
+        assignmentSystem.Return(entity);
         base.Deactivate(entity);
     }
 }

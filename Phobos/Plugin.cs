@@ -148,7 +148,7 @@ public class Plugin : BaseUnityPlugin
 
     private static void ZoneParametersChanged(object sender, EventArgs args)
     {
-        Singleton<PhobosManager>.Instance?.LocationSystem.CalculateZones();
+        Singleton<PhobosManager>.Instance?.AssignmentSystem.CalculateZones();
     }
     
     private static void CameraCoordsToggle(ConfigEntryBase entry)
@@ -210,7 +210,7 @@ public class Plugin : BaseUnityPlugin
         
         if (GUILayout.Button("Reload Zones"))
         {
-            Singleton<PhobosManager>.Instance?.LocationSystem.CalculateZones();
+            Singleton<PhobosManager>.Instance?.AssignmentSystem.CalculateZones();
         }
     }
 }

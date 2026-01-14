@@ -28,7 +28,7 @@ public struct Cell(int id)
     }
 }
 
-public class LocationSystem
+public class AssignmentSystem
 {
     private readonly Cell[,] _cells;
     private readonly float _cellSize;
@@ -57,7 +57,7 @@ public class LocationSystem
     public Vector2[,] AdvectionField => _advectionField;
     public List<Zone> Zones => _zones;
 
-    public LocationSystem(string mapId, PhobosConfig phobosConfig, BotsController botsController)
+    public AssignmentSystem(string mapId, PhobosConfig phobosConfig, BotsController botsController)
     {
         _zoneConfig = phobosConfig.Location.MapZones[mapId];
         _botsController = botsController;
@@ -161,7 +161,6 @@ public class LocationSystem
         DebugLog.Write($"Requesting location around {requestCoords} | {worldPos} with previous coords {previousCoords}");
 
         _tempCoordsBuffer.Clear();
-        var vacancyVector = Vector2.zero;
 
         // First pass: determine preferential direction
         for (var dx = -1; dx <= 1; dx++)
@@ -181,7 +180,6 @@ public class LocationSystem
                 if (!cell.HasLocations)
                     continue;
 
-                vacancyVector += -1 * cell.Congestion * ((Vector2)direction).normalized;
                 _tempCoordsBuffer.Add(direction);
             }
         }
@@ -191,9 +189,9 @@ public class LocationSystem
         var momentumVector = (Vector2)(requestCoords - previousCoords);
         momentumVector.Normalize();
 
-        var prefDirection = vacancyVector + momentumVector + advectionVector + randomization;
+        var prefDirection = momentumVector + advectionVector + randomization;
 
-        DebugLog.Write($"Direction: {prefDirection} vacancy: {vacancyVector} mom: {momentumVector} adv: {advectionVector} rand: {randomization}");
+        DebugLog.Write($"Direction: {prefDirection} mom: {momentumVector} adv: {advectionVector} rand: {randomization}");
 
         if (prefDirection == Vector2.zero)
         {
