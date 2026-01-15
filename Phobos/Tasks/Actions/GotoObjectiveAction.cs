@@ -46,32 +46,23 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
         {
             var agent = ActiveEntities[i];
             var objective = agent.Objective;
-            
-            // TODO:
-            // Remove all state tracking - all this will do is check that the move target is within range of the current objective, and if not
-            // submit a new move order. Nothing else needs to be done.
-            
-            // ReSharper disable once ConvertIfStatementToSwitchStatement
-            if (objective.Status == ObjectiveStatus.Failed)
+
+            if (agent.Objective.Status == ObjectiveStatus.Failed || objective.Location == null)
             {
                 continue;
             }
 
-            if (objective.Status == ObjectiveStatus.Suspended)
+            if ((agent.Movement.Target - objective.Location.Position).sqrMagnitude <= ObjectiveEpsDistSqr)
             {
-                DebugLog.Write($"{agent} objective {agent.Objective.Location} is suspended, submitting move order");
-                objective.Status = ObjectiveStatus.Active;
-                movementSystem.MoveToByPath(agent, objective.Location.Position);
+                if (agent.Movement.Status == MovementStatus.Failed)
+                {
+                    objective.Status = ObjectiveStatus.Failed;
+                }
                 continue;
             }
-
-            // Only fail the objective if the movement fails outside the objective zone.  
-            if (agent.Movement.Status == MovementStatus.Failed &&
-                (objective.Location.Position - agent.Position).sqrMagnitude > ObjectiveEpsDistSqr)
-            {
-                DebugLog.Write($"{agent} objective {agent.Objective.Location} is failed");
-                objective.Status = ObjectiveStatus.Failed;
-            }
+            
+            DebugLog.Write($"{agent} received new objective {agent.Objective.Location}, submitting move order");
+            movementSystem.MoveToByPath(agent, objective.Location.Position);
         }
     }
 
@@ -79,25 +70,20 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
     {
         base.Activate(entity);
 
-        var objective = entity.Objective;
-
-        // If the current objective failed bail out. 
-        if (objective.Status == ObjectiveStatus.Failed)
+        if (entity.Objective.Location == null)
         {
             return;
         }
-
-        objective.Status = ObjectiveStatus.Active;
-
+        
         // Check if we are already moving to our target
         if (entity.Movement.HasPath)
         {
-            if ((entity.Movement.Target - objective.Location.Position).sqrMagnitude <= ObjectiveEpsDistSqr)
+            if ((entity.Movement.Target - entity.Objective.Location.Position).sqrMagnitude <= ObjectiveEpsDistSqr)
             {
                 return;
             }
         }
 
-        movementSystem.MoveToByPath(entity, objective.Location.Position);
+        movementSystem.MoveToByPath(entity, entity.Objective.Location.Position);
     }
 }

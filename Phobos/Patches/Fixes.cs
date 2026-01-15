@@ -39,14 +39,7 @@ public class BotMoverManualFixedUpdatePatch : ModulePatch
     [PatchPrefix]
     public static bool PatchPrefix(BotMover __instance)
     {
-        if (Singleton<PhobosManager>.Instance == null)
-        {
-            return true;
-        }
-
-        var isPhobosActive = Singleton<BsgBotRegistry>.Instance.IsPhobosActive(__instance.BotOwner_0);
-        DebugLog.Write($"BM FixedUpdatePatch: {__instance.BotOwner_0.Profile.Info.Settings.Role} phobos active {isPhobosActive}");
-        return !isPhobosActive;
+        return Singleton<PhobosManager>.Instance == null || !Singleton<BsgBotRegistry>.Instance.IsPhobosActive(__instance.BotOwner_0);
     }
 }
 

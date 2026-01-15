@@ -1,4 +1,5 @@
-﻿using Phobos.Components.Squad;
+﻿using Phobos.Components;
+using Phobos.Components.Squad;
 using Phobos.Data;
 using Phobos.Diag;
 using Phobos.Entities;
@@ -12,7 +13,7 @@ namespace Phobos.Tasks.Strategies;
 public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignmentSystem, float hysteresis) : Task<Squad>(hysteresis)
 {
     private static Range _moveTimeoutRange = new(300, 600);
-    private static Range _waitTimeoutRange = new(100, 200);
+    private static Range _waitTimeoutRange = new(60, 120);
 
     public override void UpdateScore(int ordinal)
     {
@@ -39,6 +40,7 @@ public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignm
                 if (agent.Objective.Location != squad.Objective.Location)
                 {
                     agent.Objective.Location = squad.Objective.Location;
+                    agent.Objective.Status = ObjectiveStatus.Active;
                     DebugLog.Write($"{agent} assigned objective {squad.Objective.Location}");
                 }
 
@@ -72,6 +74,8 @@ public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignm
 
     public override void Activate(Squad entity)
     {
+        base.Activate(entity);
+        
         // If we have an objective, reset the timer on activation
         if (entity.Objective.Location != null)
         {
@@ -79,8 +83,6 @@ public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignm
                 ? _waitTimeoutRange.SampleGaussian()
                 : _moveTimeoutRange.SampleGaussian();
         }
-        
-        base.Activate(entity);
     }
 
     public override void Deactivate(Entity entity)

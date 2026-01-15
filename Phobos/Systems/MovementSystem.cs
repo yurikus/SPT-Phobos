@@ -76,6 +76,9 @@ public class MovementSystem
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void MoveToByPath(Agent agent, Vector3 destination)
     {
+        // Generally, calling code can determine whether the current movement target is set correctly by checking this value.
+        // As such, the target to be set immediately to ensure that these checks are correctly done.
+        agent.Movement.Target = destination;
         ScheduleMoveJob(agent, destination);
         ResetGait(agent);
         ResetPath(agent);
@@ -139,8 +142,6 @@ public class MovementSystem
         if (!movement.HasPath || movement.Status == MovementStatus.Failed || movement.Status == MovementStatus.Stopped)
             return;
         
-        DebugGizmos.Line(agent.Position, movement.Target, color: Color.blue, expiretime: 0.15f);
-
         if (movement.VoxelUpdatePacing.Allowed())
         {
             bot.AIData.SetPosToVoxel(agent.Position);

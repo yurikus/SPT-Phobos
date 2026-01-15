@@ -5,6 +5,7 @@ using Phobos.Entities;
 
 namespace Phobos.Orchestration;
 
+// Since bot ids are small integers, we use a growable array map to look up phobos agents. O(1) with much lower constant than dictionaries.
 public class BsgBotRegistry
 {
     private readonly List<Agent> _agents = [];
