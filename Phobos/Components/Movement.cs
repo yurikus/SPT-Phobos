@@ -13,8 +13,10 @@ public enum MovementStatus
 
 public class Movement
 {
+    public static readonly Vector3 Infinity = new(float.MaxValue, float.MaxValue, float.MaxValue);
+    
     // Ensure that the null target is far away from everything
-    public Vector3 Target = new(float.MaxValue, float.MaxValue, float.MaxValue);
+    public Vector3 Target = Infinity;
     public Vector3[] Path;
     public MovementStatus Status = MovementStatus.Stopped;
 

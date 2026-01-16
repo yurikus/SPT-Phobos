@@ -1,10 +1,11 @@
-﻿using Phobos.Components;
+﻿using System.Runtime.CompilerServices;
+using Phobos.Components;
 using Phobos.Components.Squad;
 using Phobos.Data;
 using Phobos.Diag;
 using Phobos.Entities;
+using Phobos.Navigation;
 using Phobos.Systems;
-using Phobos.Tasks.Actions;
 using UnityEngine;
 using Range = Phobos.Config.Range;
 
@@ -12,8 +13,10 @@ namespace Phobos.Tasks.Strategies;
 
 public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignmentSystem, float hysteresis) : Task<Squad>(hysteresis)
 {
-    private static Range _moveTimeoutRange = new(300, 600);
-    private static Range _waitTimeoutRange = new(60, 120);
+    private static Range _moveTimeout = new(400, 600);
+    private Range _guardDuration = new(Plugin.ObjectiveGuardDuration.Value.x, Plugin.ObjectiveGuardDuration.Value.y);
+    private Range _guardDurationCut = new(Plugin.ObjectiveGuardDurationCut.Value.x, Plugin.ObjectiveGuardDurationCut.Value.y);
+    private Range _adjustedGuardDuration = new(Plugin.ObjectiveAdjustedGuardDuration.Value.x, Plugin.ObjectiveAdjustedGuardDuration.Value.y);
 
     public override void UpdateScore(int ordinal)
     {
@@ -25,81 +28,18 @@ public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignm
         }
     }
 
-    public override void Update()
-    {
-        for (var i = 0; i < ActiveEntities.Count; i++)
-        {
-            var squad = ActiveEntities[i];
-
-            var finishedCount = 0;
-
-            for (var j = 0; j < squad.Size; j++)
-            {
-                var agent = squad.Members[j];
-
-                if (agent.Objective.Location != squad.Objective.Location)
-                {
-                    agent.Objective.Location = squad.Objective.Location;
-                    agent.Objective.Status = ObjectiveStatus.Active;
-                    DebugLog.Write($"{agent} assigned objective {squad.Objective.Location}");
-                }
-
-                if (agent.Objective.Location == null)
-                {
-                    continue;
-                }
-
-                if ((agent.Objective.Location.Position - agent.Player.Position).sqrMagnitude > GotoObjectiveAction.ObjectiveEpsDistSqr)
-                {
-                    // If the agent failed the objective, still count as finished
-                    if (agent.Objective.Status == ObjectiveStatus.Failed)
-                    {
-                        finishedCount++;
-                    }
-                    
-                    continue;
-                }
-                
-                finishedCount++;
-
-                if (squad.Objective.Status == ObjectiveState.Wait) continue;
-                    
-                DebugLog.Write($"{agent} reached squad objective {squad.Objective.Location}");
-                var waitTime = _waitTimeoutRange.SampleGaussian();
-                squad.Objective.Status = ObjectiveState.Wait;
-                squad.Objective.Timeout = Time.time + waitTime;
-                DebugLog.Write($"{squad} engaging wait mode for {waitTime} seconds");
-            }
-
-            if (squad.Objective.Location == null)
-            {
-                DebugLog.Write($"{squad} objective is null, requesting new assignment");
-                AssignNewObjective(squad);
-            }
-            else if (finishedCount == squad.Size && Plugin.EmbarkOnFullSquad.Value)
-            {
-                DebugLog.Write($"{squad} all members are at the objective & immediate embark is on, requesting new assignment");
-                AssignNewObjective(squad);
-            }
-            else if (Time.time >= squad.Objective.Timeout)
-            {
-                DebugLog.Write($"{squad} wait timer ran out, requesting new assignment");
-                AssignNewObjective(squad);
-            }
-        }
-    }
-
     public override void Activate(Squad entity)
     {
         base.Activate(entity);
-        
+
+        if (entity.Objective.Location == null) return;
+
         // If we have an objective, reset the timer on activation
-        if (entity.Objective.Location != null)
-        {
-            entity.Objective.Timeout = entity.Objective.Status == ObjectiveState.Wait
-                ? _waitTimeoutRange.SampleGaussian()
-                : _moveTimeoutRange.SampleGaussian();
-        }
+        var timeout = entity.Objective.Status == ObjectiveState.Wait
+            ? _guardDuration.SampleGaussian()
+            : _moveTimeout.SampleGaussian();
+
+        ResetDuration(entity.Objective, timeout);
     }
 
     public override void Deactivate(Entity entity)
@@ -107,6 +47,112 @@ public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignm
         // Ensure that we return any assignments
         assignmentSystem.Return(entity);
         base.Deactivate(entity);
+    }
+
+    public override void Update()
+    {
+        for (var i = 0; i < ActiveEntities.Count; i++)
+        {
+            var squad = ActiveEntities[i];
+            var squadObjective = squad.Objective;
+
+            if (squadObjective.Location == null)
+            {
+                DebugLog.Write($"{squad} objective is null, requesting new assignment");
+                AssignNewObjective(squad);
+                continue;
+            }
+            
+            var finishedCount = UpdateAgents(squad);
+
+            if (finishedCount == squad.Size)
+            {
+                if (squadObjective.Status == ObjectiveState.Active)
+                {
+                    DebugLog.Write($"{squad} all members failed their objective en-route, requesting new assignment");
+                    AssignNewObjective(squad);
+                    continue;
+                }
+
+                if (!squadObjective.DurationAdjusted)
+                {
+                    switch (squadObjective.Location.Category)
+                    {
+                        case LocationCategory.ContainerLoot:
+                        case LocationCategory.LooseLoot:
+                            // These objectives will have their wait timer cut if everyone arrived
+                            AdjustDuration(squadObjective, squadObjective.Duration * _guardDurationCut.SampleGaussian());
+                            DebugLog.Write($"{squad} adjusted {squadObjective.Location} wait duration to {squadObjective.Duration}");
+                            break;
+                        case LocationCategory.Quest:
+                        case LocationCategory.Synthetic:
+                            // These objectives simply reset the timer to a very short duration to give the bots chance to disperse
+                            // NB: Here we also reset the start time otherwise it's almost guaranteed we'd trigger an immediate timout
+                            AdjustDuration(squadObjective, _adjustedGuardDuration.SampleGaussian(), Time.time);
+                            DebugLog.Write($"{squad} adjusted {squadObjective.Location} wait duration to {squadObjective.Duration}");
+                            break;
+                        case LocationCategory.Exfil:
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            if (Time.time < squadObjective.StartTime + squadObjective.Duration)
+            {
+                continue;
+            }
+
+            DebugLog.Write($"{squad} wait timer ran out, requesting new assignment");
+            AssignNewObjective(squad);
+        }
+    }
+
+    private int UpdateAgents(Squad squad)
+    {
+        var squadObjective = squad.Objective;
+        var finishedCount = 0;
+
+        for (var i = 0; i < squad.Size; i++)
+        {
+            var agent = squad.Members[i];
+            var agentObjective = agent.Objective;
+
+            if (agentObjective.Location != squadObjective.Location)
+            {
+                agentObjective.Location = squadObjective.Location;
+                agentObjective.Status = ObjectiveStatus.Active;
+                DebugLog.Write($"{agent} assigned objective {squadObjective.Location}");
+            }
+
+            if (agentObjective.Location == null)
+            {
+                continue;
+            }
+
+            if ((agentObjective.Location.Position - agent.Player.Position).sqrMagnitude > agentObjective.Location.RadiusSqr)
+            {
+                // If the agent failed the objective, still count as finished
+                if (agentObjective.Status == ObjectiveStatus.Failed)
+                {
+                    finishedCount++;
+                }
+
+                continue;
+            }
+
+            finishedCount++;
+
+            if (squadObjective.Status == ObjectiveState.Wait) continue;
+
+            DebugLog.Write($"{agent} reached squad objective {squadObjective.Location}");
+            var waitDuration = _guardDuration.SampleGaussian();
+            squadObjective.Status = ObjectiveState.Wait;
+            ResetDuration(squadObjective, waitDuration);
+            DebugLog.Write($"{squad} engaging wait mode for {waitDuration} seconds");
+        }
+
+        return finishedCount;
     }
 
     private void AssignNewObjective(Squad squad)
@@ -122,8 +168,31 @@ public class GotoObjectiveStrategy(SquadData squadData, AssignmentSystem assignm
         squad.Objective.LocationPrevious = squad.Objective.Location;
         squad.Objective.Location = newLocation;
         squad.Objective.Status = ObjectiveState.Active;
-        squad.Objective.Timeout = Time.time + _moveTimeoutRange.SampleGaussian();
+        ResetDuration(squad.Objective, _moveTimeout.SampleGaussian());
 
         DebugLog.Write($"{squad} assigned objective {squad.Objective.Location}");
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ResetDuration(SquadObjective objective, float duration)
+    {
+        objective.StartTime = Time.time;
+        objective.Duration = duration;
+        objective.DurationAdjusted = false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AdjustDuration(SquadObjective objective, float duration)
+    {
+        objective.Duration = duration;
+        objective.DurationAdjusted = true;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AdjustDuration(SquadObjective objective, float duration, float startTime)
+    {
+        objective.StartTime = startTime;
+        objective.Duration = duration;
+        objective.DurationAdjusted = true;
     }
 }

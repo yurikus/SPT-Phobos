@@ -15,10 +15,10 @@ namespace Phobos.Systems;
 
 public class MovementSystem
 {
+    public const float TargetEpsSqr = 1.5f * 1.5f;
+    private const float CornerWalkEpsSqr = 0.35f * 0.35f;
+    private const float CornerSprintEpsSqr = 0.6f * 0.6f;
     private const int RetryLimit = 10;
-    private const float CornerReachedWalkDistSqr = 0.35f * 0.35f;
-    private const float CornerReachedSprintDistSqr = 0.6f * 0.6f;
-    private const float TargetReachedDistSqr = 1.5f * 1.5f;
 
     private readonly NavJobExecutor _navJobExecutor;
     private readonly Queue<ValueTuple<Agent, NavJob>> _moveJobs;
@@ -206,7 +206,7 @@ public class MovementSystem
         if (hasNextCorner)
         {
             var cornerReached = false;
-            var cornerReachedEps = bot.Mover.Sprinting ? CornerReachedSprintDistSqr : CornerReachedWalkDistSqr;
+            var cornerReachedEps = bot.Mover.Sprinting ? CornerSprintEpsSqr : CornerWalkEpsSqr;
             var moveVectorSqrMag = moveVector.sqrMagnitude;
 
             if (moveVectorSqrMag <= cornerReachedEps)
@@ -232,16 +232,17 @@ public class MovementSystem
         else
         {
             // If the path doesn't reach far enough, retry again. Don't rely on unity's path status value here.
-            if ((movement.Target - movement.Path[movement.CurrentCorner]).sqrMagnitude > TargetReachedDistSqr)
+            if ((movement.Target - movement.Path[movement.CurrentCorner]).sqrMagnitude > TargetEpsSqr)
             {
                 MoveRetry(agent, movement.Target);
                 return;
             }
             
             // We retry pathing above if the last corner doesn't reach far enough, here just check whether we reached that corner.
-            if ((movement.Path[movement.CurrentCorner] - agent.Player.Position).sqrMagnitude <= TargetReachedDistSqr)
+            if ((movement.Path[movement.CurrentCorner] - agent.Player.Position).sqrMagnitude <= TargetEpsSqr)
             {
                 DebugLog.Write($"{agent} destination reached");
+                movement.Target = Movement.Infinity;
                 ResetPath(agent);
                 return;
             }

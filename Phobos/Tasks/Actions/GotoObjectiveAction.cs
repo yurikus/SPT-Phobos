@@ -9,8 +9,6 @@ namespace Phobos.Tasks.Actions;
 
 public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSystem, float hysteresis) : Task<Agent>(hysteresis)
 {
-    public const float ObjectiveEpsDistSqr = 10f * 10f;
-    
     private const float UtilityBase = 0.5f;
     private const float UtilityBoost = 0.15f;
     private const float UtilityBoostMaxDistSqr = 50f * 50f;
@@ -21,9 +19,9 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
         for (var i = 0; i < agents.Count; i++)
         {
             var agent = agents[i];
-            var objective = agent.Objective;
-
-            if (objective.Status == ObjectiveStatus.Failed || objective.Location == null)
+            var location = agent.Objective.Location;
+            
+            if (agent.Objective.Status == ObjectiveStatus.Failed || location == null)
             {
                 agent.TaskScores[ordinal] = 0;
                 continue;
@@ -31,10 +29,10 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
 
             // Baseline utility is 0.5f, boosted up to 0.65f as the bot gets nearer the objective. Once within the objective radius, the
             // utility falls off sharply.
-            var distSqr = (objective.Location.Position - agent.Position).sqrMagnitude;
+            var distSqr = (location.Position - agent.Position).sqrMagnitude;
 
-            var utilityBoostFactor = Mathf.InverseLerp(UtilityBoostMaxDistSqr, ObjectiveEpsDistSqr, distSqr);
-            var utilityDecay = Mathf.InverseLerp(0f, ObjectiveEpsDistSqr, distSqr);
+            var utilityBoostFactor = Mathf.InverseLerp(UtilityBoostMaxDistSqr, location.RadiusSqr, distSqr);
+            var utilityDecay = Mathf.InverseLerp(0f, location.RadiusSqr, distSqr);
 
             agent.TaskScores[ordinal] = utilityDecay * (UtilityBase + utilityBoostFactor * UtilityBoost);
         }
@@ -52,12 +50,17 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
                 continue;
             }
 
-            if ((agent.Movement.Target - objective.Location.Position).sqrMagnitude <= ObjectiveEpsDistSqr)
+            // We'll fail the objective if we are outside it's radius and the movement itself failed
+            if (agent.Movement.Status == MovementStatus.Failed
+                && (objective.Location.Position - agent.Position).sqrMagnitude > objective.Location.RadiusSqr)
             {
-                if (agent.Movement.Status == MovementStatus.Failed)
-                {
-                    objective.Status = ObjectiveStatus.Failed;
-                }
+                objective.Status = ObjectiveStatus.Failed;
+                continue;
+            }
+            
+            // Target hysteresis: skip new move orders if the objective deviates from the target by less than the move system epsilon
+            if ((agent.Movement.Target - objective.Location.Position).sqrMagnitude <= MovementSystem.TargetEpsSqr)
+            {
                 continue;
             }
             
@@ -70,7 +73,9 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
     {
         base.Activate(entity);
 
-        if (entity.Objective.Location == null)
+        var location = entity.Objective.Location;
+        
+        if (location == null)
         {
             return;
         }
@@ -78,12 +83,12 @@ public class GotoObjectiveAction(AgentData dataset, MovementSystem movementSyste
         // Check if we are already moving to our target
         if (entity.Movement.HasPath)
         {
-            if ((entity.Movement.Target - entity.Objective.Location.Position).sqrMagnitude <= ObjectiveEpsDistSqr)
+            if ((entity.Movement.Target - location.Position).sqrMagnitude <= location.RadiusSqr)
             {
                 return;
             }
         }
 
-        movementSystem.MoveToByPath(entity, entity.Objective.Location.Position);
+        movementSystem.MoveToByPath(entity, location.Position);
     }
 }

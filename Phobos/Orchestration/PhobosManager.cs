@@ -78,7 +78,7 @@ public class PhobosManager
         
         MovementSystem = new MovementSystem(NavJobExecutor, humanPlayers);
         LookSystem = new LookSystem();
-        AssignmentSystem = new AssignmentSystem(MapId, Config, botsController);
+        AssignmentSystem = new AssignmentSystem(MapId, Config, botsController, humanPlayers);
         DoorSystem = new  DoorSystem();
         
         RegisterComponents();

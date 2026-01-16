@@ -14,6 +14,7 @@ using Phobos.Enums;
 using Phobos.Orchestration;
 using Phobos.Patches;
 using UnityEngine;
+using Range = Phobos.Config.Range;
 
 namespace Phobos;
 
@@ -27,12 +28,14 @@ public class Plugin : BaseUnityPlugin
 
     public static ManualLogSource Log;
 
+    public static ConfigEntry<Vector2> ObjectiveGuardDuration;
+    public static ConfigEntry<Vector2> ObjectiveAdjustedGuardDuration;
+    public static ConfigEntry<Vector2> ObjectiveGuardDurationCut;
+    
     public static ConfigEntry<bool> ScavSquadsEnabled;
     public static ConfigEntry<float> ZoneRadiusScale;
     public static ConfigEntry<float> ZoneForceScale;
     public static ConfigEntry<float> ZoneRadiusDecayScale;
-    
-    public static ConfigEntry<bool> EmbarkOnFullSquad;
     
     private static ConfigEntry<bool> _loggingEnabled;
     
@@ -87,7 +90,7 @@ public class Plugin : BaseUnityPlugin
             nameof(BsgBrain.SectantWarrior)
         };
         
-        BrainManager.AddCustomLayer(typeof(PhobosLayer), brains,19);
+        BrainManager.AddCustomLayer(typeof(PhobosLayer), brains,int.MaxValue);
 
         // This layer makes scavs stand still doing bugger all, remove it
         BrainManager.RemoveLayer("AssaultEnemyFar", brains);
@@ -101,6 +104,7 @@ public class Plugin : BaseUnityPlugin
     {
         const string general = "01. General";
         const string objectives = "02. Objectives";
+        const string zones = "03. Zones";
         const string debug = "XX. Diagnostics";
 
         /*
@@ -109,38 +113,52 @@ public class Plugin : BaseUnityPlugin
         ScavSquadsEnabled = Config.Bind(general, "Brown Tide (RESTART)", false, new ConfigDescription(
             "Allows scavs to form squads. Beware! They'll tend to congeal into massive tides that sweep over the map.",
             null,
-            new ConfigurationManagerAttributes { Order = 4 }
+            new ConfigurationManagerAttributes { Order = 1 }
         ));
         
-        ZoneRadiusScale = Config.Bind(general, "Zone Radius Scale", 1f, new ConfigDescription(
+        /*
+         * Objectives
+         */
+        ObjectiveGuardDuration = Config.Bind(objectives, "Base Guard Duration (RESTART)", new Vector2(60f, 120f), new ConfigDescription(
+            "Base guarding duration range. Squads will wait a bit at their objectives before moving on.",
+            null,
+            new ConfigurationManagerAttributes { Order = 3 }
+        ));
+        ObjectiveAdjustedGuardDuration = Config.Bind(objectives, "Adjusted Guard Duration (RESTART)", new Vector2(3.5f, 6.5f), new ConfigDescription(
+            "Duration that squads can guard quest and synthetic objectives once all the members are at the location.",
+            null,
+            new ConfigurationManagerAttributes { Order = 2 }
+        ));
+        ObjectiveGuardDurationCut = Config.Bind(objectives, "Guard Duration Cut (RESTART)", new Vector2(0.35f, 0.65f), new ConfigDescription(
+            "How much to scale down the remaining wait time for loot objectives once all the members are at the location",
+            null,
+            new ConfigurationManagerAttributes { Order = 1 }
+        ));
+        
+        
+        /*
+         * General
+         */
+        ZoneRadiusScale = Config.Bind(zones, "Zone Radius Scale", 1f, new ConfigDescription(
             "Scales the radius of the zones on the map.",
             new AcceptableValueRange<float>(0f, 10f),
             new ConfigurationManagerAttributes { Order = 3 }
         ));
         ZoneRadiusScale.SettingChanged += ZoneParametersChanged;
         
-        ZoneForceScale = Config.Bind(general, "Zone Force Scale", 1f, new ConfigDescription(
+        ZoneForceScale = Config.Bind(zones, "Zone Force Scale", 1f, new ConfigDescription(
             "Scales the forces exerted by the zones on the map. Negative scaling flips the sign, turning attractors into repulsors and vice versa.",
             new AcceptableValueRange<float>(-10f, 10f),
             new ConfigurationManagerAttributes { Order = 2 }
         ));
         ZoneForceScale.SettingChanged += ZoneParametersChanged;
         
-        ZoneRadiusDecayScale = Config.Bind(general, "Zone Force Decay Scale", 1f, new ConfigDescription(
+        ZoneRadiusDecayScale = Config.Bind(zones, "Zone Force Decay Scale", 1f, new ConfigDescription(
             "Scales the zone force decay exponent.",
             new AcceptableValueRange<float>(0f, 5f),
             new ConfigurationManagerAttributes { Order = 1 }
         ));
         ZoneRadiusDecayScale.SettingChanged += ZoneParametersChanged;
-        
-        /*
-         * Objectives
-         */
-        EmbarkOnFullSquad = Config.Bind(objectives, "Embark Immediately", false, new ConfigDescription(
-            "Embark immediately when the whole squad reaches the objective.",
-            null,
-            new ConfigurationManagerAttributes { Order = 1 }
-        ));
         
         /*
          * Deboog

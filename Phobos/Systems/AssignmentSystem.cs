@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Comfort.Common;
 using EFT;
 using EFT.Interactive;
 using Phobos.Config;
@@ -57,7 +58,7 @@ public class AssignmentSystem
     public Vector2[,] AdvectionField => _advectionField;
     public List<Zone> Zones => _zones;
 
-    public AssignmentSystem(string mapId, PhobosConfig phobosConfig, BotsController botsController)
+    public AssignmentSystem(string mapId, PhobosConfig phobosConfig, BotsController botsController, List<Player> humanPlayers)
     {
         _zoneConfig = phobosConfig.Location.MapZones[mapId];
         _botsController = botsController;
@@ -98,7 +99,7 @@ public class AssignmentSystem
         }
 
         // Add the builtin locations
-        var locations = CollectLocations();
+        var locations = CollectLocations(humanPlayers);
         Shuffle(locations);
 
         for (var i = 0; i < locations.Count; i++)
@@ -191,6 +192,7 @@ public class AssignmentSystem
         var advectionVector = _advectionField[requestCoords.x, requestCoords.y];
         var momentumVector = (Vector2)(requestCoords - previousCoords);
         momentumVector.Normalize();
+        momentumVector *= 0.5f;
 
         var prefDirection = momentumVector + advectionVector + randomization;
 
@@ -504,7 +506,7 @@ public class AssignmentSystem
         }
     }
 
-    private static List<Location> CollectLocations()
+    private List<Location> CollectLocations(List<Player> humanPlayers)
     {
         var collection = new List<Location>();
 
@@ -520,6 +522,8 @@ public class AssignmentSystem
             ValidateAndAddLocation(collection, LocationCategory.Quest, trigger.name, trigger.transform.position);
         }
 
+        DebugLog.Write("Collecting loot POIs");
+        
         foreach (var container in Object.FindObjectsOfType<LootableContainer>())
         {
             if (container.transform == null || !container.enabled || container.Template == null)
@@ -527,17 +531,51 @@ public class AssignmentSystem
 
             ValidateAndAddLocation(collection, LocationCategory.ContainerLoot, container.name, container.transform.position);
         }
+        
+        DebugLog.Write("Collecting exfil POIs");
+        var exfilController = Singleton<GameWorld>.Instance.ExfiltrationController;
 
+        var uniqueExfils = new HashSet<Exfil>();
+
+        foreach (var player in humanPlayers)
+        {
+            var eligibleExfils = exfilController.EligiblePoints(player.Profile);
+            DebugLog.Write($"Found {eligibleExfils.Length} exfils for player {player.Profile.Nickname}");
+            
+            // We only collect exfils that humans can go to. People won't really notice bots exfil camping each other.
+            foreach (var eligiblePoint in eligibleExfils)
+            {
+                uniqueExfils.Add(new Exfil(eligiblePoint));
+            }
+        }
+
+        foreach (var exfil in uniqueExfils)
+        {
+            DebugLog.Write($"Trying to add exfil {exfil.Point.name} with ID {exfil.Point.Id}");
+            ValidateAndAddLocation(collection, LocationCategory.Exfil, exfil.Point.name, exfil.Point.transform.position, 5f);
+        }
+        
         DebugLog.Write($"Collected {collection.Count} points of interest");
 
         return collection;
     }
 
-    private static void ValidateAndAddLocation(List<Location> collection, LocationCategory category, string name, Vector3 position)
+    private void ValidateAndAddLocation(List<Location> collection, LocationCategory category, string name, Vector3 position, float maxDistance=2f)
     {
-        if (NavMesh.SamplePosition(position, out var target, 2f, NavMesh.AllAreas))
+        if (NavMesh.SamplePosition(position, out var target, maxDistance, NavMesh.AllAreas))
         {
-            var objective = new Location(_idCounter, category, name, target.position);
+            var radius = category switch
+            {
+                LocationCategory.ContainerLoot => 10f,
+                LocationCategory.LooseLoot => 10f,
+                LocationCategory.Quest => Mathf.Max(10f, _cellSize / 2f),
+                LocationCategory.Synthetic => Mathf.Max(10f, _cellSize / 2f),
+                LocationCategory.Exfil => Mathf.Max(10f, _cellSize / 2f),
+                _ => 10f
+            };
+            var radiusSqr = radius * radius;
+            
+            var objective = new Location(_idCounter, category, name, target.position, radiusSqr);
             collection.Add(objective);
             _idCounter++;
         }
@@ -547,9 +585,11 @@ public class AssignmentSystem
         }
     }
 
-    private static Location BuildSyntheticLocation(Vector3 position)
+    private Location BuildSyntheticLocation(Vector3 position)
     {
-        var location = new Location(_idCounter, LocationCategory.Synthetic, $"Synthetic_{_idCounter}", position);
+        var radius = Mathf.Max(10f, _cellSize / 2f);
+        var radiusSqr = radius * radius;
+        var location = new Location(_idCounter, LocationCategory.Synthetic, $"Synthetic_{_idCounter}", position, radiusSqr);
         _idCounter++;
         return location;
     }
@@ -564,6 +604,28 @@ public class AssignmentSystem
         public override string ToString()
         {
             return $"Zone(position: {Coords}, radius: {Radius}, force: {Force}, decay: {Decay})";
+        }
+    }
+
+    private readonly struct Exfil(ExfiltrationPoint point) : IEquatable<Exfil>
+    {
+        private readonly MongoID _id = point.Id;
+        
+        public readonly ExfiltrationPoint Point = point;
+
+        public bool Equals(Exfil other)
+        {
+            return _id.Equals(other._id);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is Exfil other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return _id.GetHashCode();
         }
     }
 }

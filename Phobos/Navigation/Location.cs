@@ -12,10 +12,12 @@ public enum LocationCategory
     Exfil
 }
 
-public class Location(int id, LocationCategory category, string name, Vector3 position) : IEquatable<Location>
+public class Location(int id, LocationCategory category, string name, Vector3 position, float radiusSqr) : IEquatable<Location>
 {
     private readonly int _id = id;
     public readonly Vector3 Position = position;
+    public readonly float RadiusSqr = radiusSqr;
+    public readonly LocationCategory Category = category;
 
     public bool Equals(Location other)
     {
@@ -34,7 +36,7 @@ public class Location(int id, LocationCategory category, string name, Vector3 po
     {
         return _id;
     }
-    
+
     public static bool operator ==(Location lhs, Location rhs)
     {
         if (lhs is null)
@@ -43,14 +45,15 @@ public class Location(int id, LocationCategory category, string name, Vector3 po
             // null == null = true.
             // Only the left side is null.
         }
+
         // Equals handles the case of null on right side.
         return lhs.Equals(rhs);
     }
 
     public static bool operator !=(Location lhs, Location rhs) => !(lhs == rhs);
-    
+
     public override string ToString()
     {
-        return $"Location({_id}, {category}, {name})";
+        return $"Location({_id}, {Category}, {name})";
     }
 }

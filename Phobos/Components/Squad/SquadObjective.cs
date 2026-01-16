@@ -16,10 +16,12 @@ public class SquadObjective
     
     public ObjectiveState Status = ObjectiveState.Wait;
 
-    public float Timeout;
+    public float StartTime;
+    public float Duration;
+    public bool DurationAdjusted;
 
     public override string ToString()
     {
-        return $"SquadObjective({Location}, {Status}, timeout: {Timeout - Time.time})";
+        return $"SquadObjective({Location}, {Status}, timeout: {Time.time - StartTime} / {Duration})";
     }
 }

@@ -99,7 +99,8 @@ public class PhobosLayer : CustomLayer
     public override bool IsActive()
     {
         var isHealing = BotOwner.Medecine.Using || BotOwner.Medecine.SurgicalKit.HaveWork || BotOwner.Medecine.FirstAid.Have2Do;
-        return !isHealing;
+        var isInCombat = BotOwner.Memory.IsUnderFire || BotOwner.Memory.HaveEnemy || Time.time - BotOwner.Memory.LastEnemyTimeSeen < 15f;
+        return !isHealing && !isInCombat;
     }
 
     // ReSharper disable once InvertIf
@@ -137,7 +138,7 @@ public class PhobosLayer : CustomLayer
         sb.AppendLine($"{_agent} Task: {_agent.TaskAssignment.Task}");
         sb.AppendLine($"{_agent.Movement} dist {distMove}");
         sb.AppendLine(_agent.Stuck.ToString());
-        sb.AppendLine($"{_agent.Objective} dist {distObj}");
+        sb.AppendLine($"{_agent.Objective} dist {distObj}/{_agent.Objective.Location?.RadiusSqr}");
         sb.AppendLine("*** Generic ***");
         sb.AppendLine($"HasEnemy: {BotOwner.Memory.HaveEnemy} UnderFire: {BotOwner.Memory.IsUnderFire}");
         sb.AppendLine($"Pose: {pose} DestSpeed: {destSpeed} ActualSpeed: {actualSpeed}");
