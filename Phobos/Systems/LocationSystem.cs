@@ -56,15 +56,29 @@ public class LocationSystem
 
     public LocationSystem(string mapId, PhobosConfig phobosConfig, BotsController botsController)
     {
-        DebugLog.Write("Calculating world geometry");
         _zoneConfig = phobosConfig.Location.MapZones[mapId];
         _botsController = botsController;
+        
+        DebugLog.Write("Gathering built in locations");
+        _locationGatherer = new LocationGatherer(_cellSize);
+        // Add the builtin locations
+        var builtinLocations = _locationGatherer.CollectBuiltinLocations();
 
+        DebugLog.Write("Calculating world geometry");
         var geometryConfig = phobosConfig.Location.MapGeometries.Value[mapId];
 
         // Calculate bounds from positions
         _worldMin = geometryConfig.Min;
         _worldMax = geometryConfig.Max;
+        
+        for (var i = 0; i < builtinLocations.Count; i++)
+        {
+            var pos = builtinLocations[i].Position;
+            _worldMin.x = Mathf.Min(_worldMin.x, pos.x);
+            _worldMin.y = Mathf.Min(_worldMin.y, pos.z);
+            _worldMax.x = Mathf.Max(_worldMax.x, pos.x);
+            _worldMax.y = Mathf.Max(_worldMax.y, pos.z);
+        }
 
         _worldOffset = new Vector2(_worldMin.x, _worldMin.y);
 
@@ -85,7 +99,6 @@ public class LocationSystem
         var searchRadius = Math.Max(worldWidth, worldHeight) / 2f;
 
         DebugLog.Write("Constructing location system cells");
-        
         // Cell initialization
         var cellId = 0;
         for (var x = 0; x < cols; x++)
@@ -97,19 +110,23 @@ public class LocationSystem
             }
         }
 
-        DebugLog.Write("Gathering built in locations");
-        _locationGatherer = new LocationGatherer(_cellSize);
-        // Add the builtin locations
-        var builtinLocations = _locationGatherer.CollectBuiltinLocations();
-
+        DebugLog.Write("Populating cells with builtin locations");
         for (var i = 0; i < builtinLocations.Count; i++)
         {
             var location = builtinLocations[i];
             var coords = WorldToCell(location.Position);
+
+            if (!IsValidCell(coords))
+            {
+                DebugLog.Write($"{location} with coords {coords} doesn't fall inside valid cell (grid size {_gridSize})");
+                continue;
+            }
+            
             _cells[coords.x, coords.y].Locations.Add(location);
         }
 
         // Loop through all the cells and try to populate them with synthetic locations if there aren't any builtin ones
+        DebugLog.Write("Populating cells with synthetic locations");
         _validCellQueue = new Queue<Vector2Int>();
         for (var x = 0; x < _gridSize.x; x++)
         {
@@ -160,8 +177,13 @@ public class LocationSystem
         Return(entity);
 
         var requestCoords = WorldToCell(worldPos);
-        var previousCoords = previous == null ? WorldToCell(worldPos) : WorldToCell(previous.Position);
+        
+        if (!IsValidCell(requestCoords))
+        {
+            return RequestFar(entity);
+        }
 
+        var previousCoords = previous == null ? requestCoords : WorldToCell(previous.Position);
         _tempCoordsBuffer.Clear();
 
         // First pass: determine preferential direction
@@ -197,7 +219,7 @@ public class LocationSystem
 
         DebugLog.Write($"Location search from {requestCoords} direction: {prefDirection} mom: {momentumVector} adv: {advectionVector} rand: {randomization}");
 
-        if (prefDirection == Vector2.zero)
+        if (_tempCoordsBuffer.Count == 0 || prefDirection == Vector2.zero)
         {
             DebugLog.Write("Zero vector preferred direction, trying the current cell, and failing that the map-wide least congested cell");
             // We can't go to any neighboring cell for some reason, grab something from the current cell, and if that fails too, search map-wide. 
@@ -282,8 +304,16 @@ public class LocationSystem
                 throw new ArgumentException("The zone radius must be greater than or equal to 1");
             }
 
+            var coords = WorldToCell(customZone.Position);
+
+            if (!IsValidCell(coords))
+            {
+                DebugLog.Write($"Custom zone at {customZone.Position} with cell coords {coords} falls outside of bounds {_gridSize}");
+                continue;
+            }
+
             var zone = new Zone(
-                WorldToCell(customZone.Position),
+                coords,
                 customZone.Radius.SampleGaussian(),
                 customZone.Force.SampleGaussian(),
                 customZone.Decay
