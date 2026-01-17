@@ -23,7 +23,7 @@ namespace Phobos;
 [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 public class Plugin : BaseUnityPlugin
 {
-    public const string PhobosVersion = "0.1.3";
+    public const string PhobosVersion = "0.1.4";
 
     public static ManualLogSource Log;
 
@@ -74,6 +74,7 @@ public class Plugin : BaseUnityPlugin
         new PhobosFrameUpdatePatch().Enable();
         new PhobosDisposePatch().Enable();
         
+        new GotoPositionTeleportFixPatch().Enable();
         new BotMoverTeleportFixPatch().Enable();
         new MovementContextIsAIPatch().Enable();
         new EnableVaultPatch().Enable();

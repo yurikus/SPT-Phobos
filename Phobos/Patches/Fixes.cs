@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Numerics;
 using System.Reflection;
 using Comfort.Common;
 using EFT;
@@ -8,6 +9,35 @@ using Phobos.Orchestration;
 using SPT.Reflection.Patching;
 
 namespace Phobos.Patches;
+
+
+// After SAIN/Phobos deactivates, this function will often teleport them to some weird position that BSG thinks the bot should have
+// It's preferable if the bot is simply stuck rather than this.
+public class GotoPositionTeleportFixPatch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        /*
+        Vector3 target,
+        bool slowAtTheEnd,
+        float reachDist,
+        bool getUpWithCheck,
+        bool mustHaveWay,
+        bool onlyShortTrie = false,
+        bool force = false,
+        bool slowCalcUsingNativeNavMesh = false
+         */
+        return typeof(BotPathFinderClass).GetMethod(nameof(BotPathFinderClass.GoToPosition),
+            types: [typeof(Vector3), typeof(bool), typeof(float), typeof(bool), typeof(bool), typeof(bool), typeof(bool), typeof(bool)]);
+    }
+
+    // ReSharper disable once InconsistentNaming
+    [PatchPrefix]
+    public static void Patch(ref bool mustHaveWay)
+    {
+        mustHaveWay = false;
+    }
+}
 
 public class BotMoverTeleportFixPatch : ModulePatch
 {
@@ -20,7 +50,10 @@ public class BotMoverTeleportFixPatch : ModulePatch
     [PatchPrefix]
     public static bool Patch(BotMover __instance)
     {
-        DebugLog.Write($"Teleport {__instance.BotOwner_0.GetPlayer.Profile.Nickname} {new StackTrace(true)}");
+        if (__instance is GClass493)
+            return true;
+        
+        DebugLog.Write($"Teleport name: {__instance.BotOwner_0.GetPlayer.Profile.Nickname} {new StackTrace(true)}");
         return false;
     }
 }
