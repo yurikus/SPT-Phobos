@@ -3,6 +3,31 @@ AICoversData.GetIndexes combined with AICoversData.GetVoxelesExtended should get
 
 AICoversData itself is accessible on BotsController.CoversData_1
 
+!!! Also get all shrubs and trees in the vicinity. The cover point will be the point 1m away from the tree towards the objective. Shrubs we'll just hang out in the middle.
+
+## Standing Cover
+- Look at any visible doors
+  - The scan angle here will be 0 deg
+- Look away or at the objective (whichever has longer LOS)
+  - Scan angle 20-30 deg?
+- Away from the wall if nothing else works
+  - Scan angle 45 deg
+- Some bots should also crouch
+
+!! The scan angle defines an angle in which the bot will choose look directions in random 1-5 second intervals and look at (with slow/smooth change)
+
+## Crouched Cover
+- Look at any visible doors, the objective (or away if that's farther) or if none are visible, away from the wall.
+- Most bots should crouch
+
+Ignore prone cover for now.
+
+class CoverPoint
+- Position
+- CoverType (bsg - trees count as walls)
+- CoverLevel (bsg)
+- WallDirection (don't use for shrubs)
+
 # GuardReposition
 Grab a random GroupPoint near the location.
 

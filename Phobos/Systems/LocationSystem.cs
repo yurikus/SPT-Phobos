@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Comfort.Common;
 using EFT;
-using EFT.Interactive;
 using Phobos.Config;
 using Phobos.Diag;
 using Phobos.Entities;
@@ -11,7 +9,6 @@ using Phobos.Navigation;
 using UnityEngine;
 using UnityEngine.AI;
 using Location = Phobos.Navigation.Location;
-using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
 namespace Phobos.Systems;
@@ -42,14 +39,13 @@ public class LocationSystem
     private readonly Queue<Vector2Int> _validCellQueue;
     private readonly Dictionary<Entity, Vector2Int> _assignments;
 
-    private readonly List<Vector2Int> _tempCoordsBuffer = [];
-
     private readonly BotsController _botsController;
     private readonly ConfigBundle<LocationConfig.MapZone> _zoneConfig;
     private readonly List<Zone> _zones;
     private readonly Vector2[,] _advectionField;
 
-    private static int _idCounter;
+    private readonly List<Vector2Int> _tempCoordsBuffer = [];
+    private readonly LocationGatherer _locationGatherer;
 
     public Cell[,] Cells => _cells;
     public Vector2Int GridSize => _gridSize;
@@ -58,7 +54,7 @@ public class LocationSystem
     public Vector2[,] AdvectionField => _advectionField;
     public List<Zone> Zones => _zones;
 
-    public LocationSystem(string mapId, PhobosConfig phobosConfig, BotsController botsController, List<Player> humanPlayers)
+    public LocationSystem(string mapId, PhobosConfig phobosConfig, BotsController botsController)
     {
         _zoneConfig = phobosConfig.Location.MapZones[mapId];
         _botsController = botsController;
@@ -98,13 +94,13 @@ public class LocationSystem
             }
         }
 
+        _locationGatherer = new LocationGatherer(_cellSize);
         // Add the builtin locations
-        var locations = CollectLocations(humanPlayers);
-        Shuffle(locations);
+        var builtinLocations = _locationGatherer.CollectBuiltinLocations();
 
-        for (var i = 0; i < locations.Count; i++)
+        for (var i = 0; i < builtinLocations.Count; i++)
         {
-            var location = locations[i];
+            var location = builtinLocations[i];
             var coords = WorldToCell(location.Position);
             _cells[coords.x, coords.y].Locations.Add(location);
         }
@@ -143,13 +139,13 @@ public class LocationSystem
         }
 
         _assignments = new Dictionary<Entity, Vector2Int>();
-        
+
         // Zones
         _zones = [];
         _advectionField = new Vector2[_gridSize.x, _gridSize.y];
         CalculateZones();
 
-        DebugLog.Write($"Location grid size: {_gridSize}, cell size: {_cellSize:F1}, locations: {locations.Count}");
+        DebugLog.Write($"Location grid size: {_gridSize}, cell size: {_cellSize:F1}, locations: {builtinLocations.Count}");
         DebugLog.Write($"Location grid world bounds: [{_worldMin.x:F0},{_worldMin.y:F0}] -> [{_worldMax.x:F0},{_worldMax.y:F0}]");
         DebugLog.Write($"Location grid world size: {worldWidth:F0}x{worldHeight:F0} search radius: {searchRadius}");
     }
@@ -158,7 +154,7 @@ public class LocationSystem
     {
         // Always try and return assignments first to avoid counting our own influence into the decision
         Return(entity);
-            
+
         var requestCoords = WorldToCell(worldPos);
         var previousCoords = previous == null ? WorldToCell(worldPos) : WorldToCell(previous.Position);
 
@@ -351,7 +347,7 @@ public class LocationSystem
     {
         const float baseForce = 0.5f;
         var maxForce = forceMul * baseForce;
-        
+
         for (var dx = -range; dx <= range; dx++)
         {
             for (var dy = -range; dy <= range; dy++)
@@ -367,7 +363,7 @@ public class LocationSystem
                 // Direction from source to target in cell coordinates
                 var direction = new Vector2(dx, dy);
                 var distanceNorm = direction.sqrMagnitude;
-                
+
                 // Normalize direction and apply inverse squared distance falloff
                 var force = direction.normalized * maxForce / distanceNorm;
 
@@ -403,7 +399,7 @@ public class LocationSystem
                 if (!CheckPathing(cellCoords, hit.position))
                     continue;
 
-                cell.Locations.Add(BuildSyntheticLocation(hit.position));
+                cell.Locations.Add(_locationGatherer.CreateSyntheticLocation(hit.position));
                 pointsFound++;
             }
         }
@@ -497,99 +493,6 @@ public class LocationSystem
         return new Vector2Int(x, y);
     }
 
-    private static void Shuffle<T>(List<T> items)
-    {
-        // Fisher-Yates in-place shuffle
-        for (var i = 0; i < items.Count; i++)
-        {
-            var randomIndex = Random.Range(i, items.Count);
-            (items[i], items[randomIndex]) = (items[randomIndex], items[i]);
-        }
-    }
-
-    private List<Location> CollectLocations(List<Player> humanPlayers)
-    {
-        var collection = new List<Location>();
-
-        DebugLog.Write("Collecting quests POIs");
-
-        _idCounter = 0;
-
-        foreach (var trigger in Object.FindObjectsOfType<TriggerWithId>())
-        {
-            if (trigger.transform == null)
-                continue;
-
-            ValidateAndAddLocation(collection, LocationCategory.Quest, trigger.name, trigger.transform.position);
-        }
-
-        DebugLog.Write("Collecting loot POIs");
-        
-        foreach (var container in Object.FindObjectsOfType<LootableContainer>())
-        {
-            if (container.transform == null || !container.enabled || container.Template == null)
-                continue;
-
-            ValidateAndAddLocation(collection, LocationCategory.ContainerLoot, container.name, container.transform.position);
-        }
-        
-        DebugLog.Write("Collecting exfil POIs");
-        var exfilController = Singleton<GameWorld>.Instance.ExfiltrationController;
-
-        var uniqueExfils = new HashSet<Exfil>();
-        
-        foreach (var point in exfilController.ExfiltrationPoints)
-        {
-            uniqueExfils.Add(new Exfil(point));
-        }
-        
-        DebugLog.Write($"Found {uniqueExfils.Count} exfils");
-        
-        foreach (var exfil in uniqueExfils)
-        {
-            DebugLog.Write($"Trying to add exfil {exfil.Point.name} with ID {exfil.Point.Id}");
-            ValidateAndAddLocation(collection, LocationCategory.Exfil, exfil.Point.name, exfil.Point.transform.position, 5f);
-        }
-        
-        DebugLog.Write($"Collected {collection.Count} points of interest");
-
-        return collection;
-    }
-
-    private void ValidateAndAddLocation(List<Location> collection, LocationCategory category, string name, Vector3 position, float maxDistance=2f)
-    {
-        if (NavMesh.SamplePosition(position, out var target, maxDistance, NavMesh.AllAreas))
-        {
-            var radius = category switch
-            {
-                LocationCategory.ContainerLoot => 10f,
-                LocationCategory.LooseLoot => 10f,
-                LocationCategory.Quest => Mathf.Max(10f, _cellSize / 2f),
-                LocationCategory.Synthetic => Mathf.Max(10f, _cellSize / 2f),
-                LocationCategory.Exfil => Mathf.Max(10f, _cellSize / 2f),
-                _ => 10f
-            };
-            var radiusSqr = radius * radius;
-            
-            var objective = new Location(_idCounter, category, name, target.position, radiusSqr);
-            collection.Add(objective);
-            _idCounter++;
-        }
-        else
-        {
-            DebugLog.Write($"Skipping Location({category}, {name}, {position}), too far from navmesh");
-        }
-    }
-
-    private Location BuildSyntheticLocation(Vector3 position)
-    {
-        var radius = Mathf.Max(10f, _cellSize / 2f);
-        var radiusSqr = radius * radius;
-        var location = new Location(_idCounter, LocationCategory.Synthetic, $"Synthetic_{_idCounter}", position, radiusSqr);
-        _idCounter++;
-        return location;
-    }
-
     public readonly struct Zone(Vector2Int coords, float radius, float force, float decay)
     {
         public readonly Vector2Int Coords = coords;
@@ -600,28 +503,6 @@ public class LocationSystem
         public override string ToString()
         {
             return $"Zone(position: {Coords}, radius: {Radius}, force: {Force}, decay: {Decay})";
-        }
-    }
-
-    private readonly struct Exfil(ExfiltrationPoint point) : IEquatable<Exfil>
-    {
-        private readonly MongoID _id = point.Id;
-        
-        public readonly ExfiltrationPoint Point = point;
-
-        public bool Equals(Exfil other)
-        {
-            return _id.Equals(other._id);
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is Exfil other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            return _id.GetHashCode();
         }
     }
 }

@@ -78,7 +78,7 @@ public class PhobosManager
         
         MovementSystem = new MovementSystem(NavJobExecutor, humanPlayers);
         LookSystem = new LookSystem();
-        LocationSystem = new LocationSystem(MapId, Config, botsController, humanPlayers);
+        LocationSystem = new LocationSystem(MapId, Config, botsController);
         DoorSystem = new  DoorSystem();
         
         RegisterComponents();

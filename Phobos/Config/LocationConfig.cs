@@ -92,7 +92,7 @@ public class LocationConfig
                 "Interchange", new MapZone(
                     new()
                     {
-                        { "ZoneCenter", new BuiltinZone(new Range(300, 400), new Range(-0.5f, 0.5f), decay: 0.5f) }
+                        { "ZoneCenter", new BuiltinZone(new Range(500, 650), new Range(-0.25f, 0.75f), decay: 0.75f) }
                     },
                     []
                 )
