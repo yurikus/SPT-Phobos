@@ -73,14 +73,14 @@ public class LocationConfig
                 "bigmap", new MapZone(
                     new()
                     {
-                        { "ZoneDormitory", new BuiltinZone(new Range(250, 300), new Range(-0.75f, 0.75f)) },
-                        { "ZoneScavBase", new BuiltinZone(new Range(350, 400), new Range(-0.75f, 0.75f)) },
+                        { "ZoneDormitory", new BuiltinZone(new Range(250, 300), new Range(-0.75f, 1.5f)) },
+                        { "ZoneScavBase", new BuiltinZone(new Range(350, 400), new Range(-0.75f, 1.5f)) },
                         { "ZoneOldAZS", new BuiltinZone(new Range(100, 150), new Range(-0.25f, 0.25f)) },
-                        { "ZoneGasStation", new BuiltinZone(new Range(200, 250), new Range(-0.25f, 0.5f)) },
+                        { "ZoneGasStation", new BuiltinZone(new Range(200, 250), new Range(-0.25f, 0.75f)) },
                     },
                     [
-                        new CustomZone(new Vector2(-200, -100), new Range(350, 400), new Range(-0.25f, 0.25f)),
-                        new CustomZone(new Vector2(550, 125), new Range(150, 200), new Range(-0.25f, 0.25f))
+                        new CustomZone(new Vector2(-200, -100), new Range(350, 400), new Range(-0.25f, 0.5f)),
+                        new CustomZone(new Vector2(550, 125), new Range(150, 200), new Range(-0.25f, 0.5f))
                     ]
                 )
             },
@@ -92,7 +92,7 @@ public class LocationConfig
                 "Interchange", new MapZone(
                     new()
                     {
-                        { "ZoneCenter", new BuiltinZone(new Range(500, 650), new Range(-0.25f, 0.75f), decay: 0.75f) }
+                        { "ZoneCenter", new BuiltinZone(new Range(500, 650), new Range(-0.25f, 1.0f), decay: 0.75f) }
                     },
                     []
                 )
@@ -103,12 +103,12 @@ public class LocationConfig
                 "Lighthouse", new MapZone(
                     new()
                     {
-                        { "Zone_Chalet", new BuiltinZone(new Range(300, 350), new Range(-0.5f, 0.5f)) },
-                        { "Zone_Village", new BuiltinZone(new Range(400, 450), new Range(-0.5f, 0.5f)) }
+                        { "Zone_Chalet", new BuiltinZone(new Range(300, 350), new Range(-0.5f, 1.25f)) },
+                        { "Zone_Village", new BuiltinZone(new Range(400, 450), new Range(-0.5f, 1.25f)) }
                     },
                     [
-                        new CustomZone(new Vector2(0, 475), new Range(500, 600), new Range(-0.25f, 0.25f)),
-                        new CustomZone(new Vector2(-55, -775), new Range(400, 450), new Range(-0.25f, 0.25f))
+                        new CustomZone(new Vector2(0, 475), new Range(500, 600), new Range(-0.25f, 0.75f)),
+                        new CustomZone(new Vector2(-55, -775), new Range(400, 450), new Range(-0.25f, 0.75f))
                     ]
                 )
             },
@@ -116,8 +116,8 @@ public class LocationConfig
                 "RezervBase", new MapZone(
                     new()
                     {
-                        { "ZoneSubStorage", new BuiltinZone(new Range(300, 350), new Range(-0.25f, 0.25f)) },
-                        { "ZoneBarrack", new BuiltinZone(new Range(300, 350), new Range(-0.25f, 0.25f)) }
+                        { "ZoneSubStorage", new BuiltinZone(new Range(300, 350), new Range(-0.25f, 0.5f)) },
+                        { "ZoneBarrack", new BuiltinZone(new Range(300, 350), new Range(-0.25f, 0.5f)) }
                     },
                     []
                 )
@@ -126,10 +126,10 @@ public class LocationConfig
                 "Shoreline", new MapZone(
                     new(),
                     [
-                        new CustomZone(new Vector2(-250, -100), new Range(500, 600), new Range(-0.25f, 0.5f)),
+                        new CustomZone(new Vector2(-250, -100), new Range(500, 600), new Range(-0.25f, 0.75f)),
                         new CustomZone(new Vector2(160, -270), new Range(500, 600), new Range(0f, 0.25f)),
-                        new CustomZone(new Vector2(-345, 455), new Range(500, 600), new Range(-0.25f, 0.5f)),
-                        new CustomZone(new Vector2(-925, 275), new Range(500, 600), new Range(-0.25f, 0.5f))
+                        new CustomZone(new Vector2(-345, 455), new Range(500, 600), new Range(-0.25f, 0.75f)),
+                        new CustomZone(new Vector2(-925, 275), new Range(500, 600), new Range(-0.25f, 0.75f))
                     ]
                 )
             },
@@ -137,9 +137,9 @@ public class LocationConfig
             {
                 "Woods", new MapZone([], [
                     new CustomZone(new Vector2(-550, -200), new Range(500, 600), new Range(-0.25f, 0.25f)), // Old Sawmill
-                    new CustomZone(new Vector2(0, 0), new Range(700, 800), new Range(-0.375f, 0.75f)), // New Sawmill
-                    new CustomZone(new Vector2(400, 250), new Range(600, 700), new Range(-0.25f, 0.25f)), // Outskirts
-                    new CustomZone(new Vector2(135, -750), new Range(800, 1000), new Range(-0.375f, 0.75f)) // Friendship Bridge
+                    new CustomZone(new Vector2(0, 0), new Range(700, 800), new Range(-0.35f, 1.25f)), // New Sawmill
+                    new CustomZone(new Vector2(400, 250), new Range(600, 700), new Range(-0.25f, 0.5f)), // Outskirts
+                    new CustomZone(new Vector2(135, -750), new Range(800, 1000), new Range(-0.35f, 1.0f)) // Friendship Bridge
                 ])
             },
         };
