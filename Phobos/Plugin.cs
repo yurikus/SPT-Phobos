@@ -23,7 +23,7 @@ namespace Phobos;
 [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 public class Plugin : BaseUnityPlugin
 {
-    public const string PhobosVersion = "0.1.6";
+    public const string PhobosVersion = "0.1.7";
 
     public static ManualLogSource Log;
 
@@ -74,7 +74,7 @@ public class Plugin : BaseUnityPlugin
         new PhobosFrameUpdatePatch().Enable();
         new PhobosDisposePatch().Enable();
         
-        new GotoPositionTeleportFixPatch().Enable();
+        // new GotoPositionTeleportFixPatch().Enable();
         new BotMoverTeleportFixPatch().Enable();
         new MovementContextIsAIPatch().Enable();
         new EnableVaultPatch().Enable();
@@ -100,7 +100,7 @@ public class Plugin : BaseUnityPlugin
             nameof(BsgBrain.SectantWarrior)
         };
 
-        BrainManager.AddCustomLayer(typeof(PhobosLayer), brains, 19);
+        BrainManager.AddCustomLayer(typeof(PhobosLayer), brains, int.MaxValue);
     }
 
     private void SetupConfig()

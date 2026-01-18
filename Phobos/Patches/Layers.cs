@@ -14,8 +14,9 @@ public class BypassAssaultEnemyFarPatch : ModulePatch
 
     // ReSharper disable once InconsistentNaming
     [PatchPrefix]
-    public static bool Patch()
+    public static bool Patch(ref bool __result)
     {
+        __result = false;
         return false;
     }
 }
@@ -30,8 +31,9 @@ public class BypassExfiltrationPatch : ModulePatch
 
     // ReSharper disable once InconsistentNaming
     [PatchPrefix]
-    public static bool Patch()
+    public static bool Patch(ref bool __result)
     {
+        __result = false;
         return false;
     }
 }

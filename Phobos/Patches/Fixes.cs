@@ -91,7 +91,13 @@ public class BotMoverManualFixedUpdatePatch : ModulePatch
     [PatchPrefix]
     public static bool PatchPrefix(BotMover __instance)
     {
-        return Singleton<PhobosManager>.Instance == null || !Singleton<BsgBotRegistry>.Instance.IsPhobosActive(__instance.BotOwner_0);
+        if (Singleton<BsgBotRegistry>.Instance == null || !Singleton<BsgBotRegistry>.Instance.IsPhobosActive(__instance.BotOwner_0))
+        {
+            return true;
+        }
+
+        __instance.method_12();
+        return false;
     }
 }
 
@@ -110,7 +116,7 @@ public class BotMoverManualUpdatePatch : ModulePatch
     [PatchPrefix]
     public static bool PatchPrefix(BotMover __instance)
     {
-        if (Singleton<PhobosManager>.Instance == null || !Singleton<BsgBotRegistry>.Instance.IsPhobosActive(__instance.BotOwner_0))
+        if (Singleton<BsgBotRegistry>.Instance == null || !Singleton<BsgBotRegistry>.Instance.IsPhobosActive(__instance.BotOwner_0))
         {
             return true;
         }
