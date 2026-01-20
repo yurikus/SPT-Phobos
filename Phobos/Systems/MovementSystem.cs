@@ -125,8 +125,7 @@ public class MovementSystem
         if (job.Status == NavMeshPathStatus.PathInvalid)
         {
             agent.Movement.Target = job.Target;
-            agent.Movement.Status = MovementStatus.Failed;
-            ResetPath(agent);
+            ResetPath(agent, MovementStatus.Failed);
             return;
         }
 
@@ -320,11 +319,11 @@ public class MovementSystem
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ResetPath(Agent agent)
+    private static void ResetPath(Agent agent, MovementStatus status = MovementStatus.Stopped)
     {
         // We explicitly don't reset the target here - it hasn't changed. Only the path is supposed to be deleted.
         agent.Movement.Path = null;
-        agent.Movement.Status = MovementStatus.Stopped;
+        agent.Movement.Status = status;
         agent.Movement.CurrentCorner = 0;
     }
 
@@ -462,8 +461,7 @@ public class MovementSystem
                 case StuckState.Teleport when stuck.Timer >= FailedDelay:
                     DebugLog.Write($"{agent} is stuck, giving up.");
                     stuck.State = StuckState.Failed;
-                    ResetPath(agent);
-                    agent.Movement.Status = MovementStatus.Failed;
+                    ResetPath(agent, MovementStatus.Failed);
                     break;
                 case StuckState.Failed:
                     Debug.Log("Skipping failed state");
