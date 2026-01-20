@@ -371,8 +371,7 @@ public class MovementSystem
     private class SoftStuckRemediation(float staleThreshold)
     {
         // Thresholds
-        private const float SprintSpeed = 5f; // Maximum bot movement speed in m/s
-        private const float StuckThresholdMultiplier = 0.5f; // Bot moving at less than 50% expected speed is stuck
+        private const float SpeedThreshold = 3.5f / 2f; // Bots moving at half the moveSpeed adjusted threshold are expected to be stuck
         private const float VaultAttemptDelay = 1.5f;
         private const float JumpAttemptDelay = 1.5f + VaultAttemptDelay;
         private const float FailedDelay = 3f + JumpAttemptDelay;
@@ -413,9 +412,8 @@ public class MovementSystem
             }
 
             // Calculate expected movement distance based on current speed setting
-            var expectedSpeed = SprintSpeed * moveSpeed;
-            var expectedDistance = expectedSpeed * deltaTime;
-            var stuckThreshold = expectedDistance * StuckThresholdMultiplier;
+            var expectedSpeed = SpeedThreshold * moveSpeed;
+            var stuckThreshold = expectedSpeed * deltaTime;
 
             // Check if bot has moved significantly
             var moveVector = currentPos - lastPos;
@@ -446,7 +444,6 @@ public class MovementSystem
                     agent.Player.MovementContext?.TryJump();
                     break;
                 case SoftStuckStatus.Jumping when stuck.Timer >= FailedDelay:
-                    DebugLog.Write($"{agent} is stuck, giving up.");
                     stuck.Status = SoftStuckStatus.Failed;
                     break;
                 case SoftStuckStatus.Failed:
@@ -545,10 +542,7 @@ public class MovementSystem
                     ResetPath(agent, MovementStatus.Failed);
                     break;
                 case HardStuckStatus.Failed:
-                    DebugLog.Write("Skipping failed state");
-                    break;
                 default:
-                    DebugLog.Write($"Unexpected bot stuck state: {stuck}");
                     break;
             }
         }
