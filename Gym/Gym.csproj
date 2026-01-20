@@ -15,4 +15,13 @@
       <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Reference Include="UnityEngine">
+        <HintPath>..\..\..\Client_Dev\EscapeFromTarkov_Data\Managed\UnityEngine.dll</HintPath>
+      </Reference>
+      <Reference Include="UnityEngine.CoreModule">
+        <HintPath>..\..\..\Client_Dev\EscapeFromTarkov_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
 </Project>

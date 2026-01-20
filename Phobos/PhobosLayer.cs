@@ -47,7 +47,6 @@ public class PhobosLayer : CustomLayer
         var pomCollider = _agent.Bot.GetPlayer.POM.Collider;
 
         var doors = _phobos.DoorSystem.Doors;
-
         for (var i = 0; i < doors.Length; i++)
         {
             var door = doors[i];
@@ -129,7 +128,8 @@ public class PhobosLayer : CustomLayer
 
         sb.AppendLine($"{_agent} Task: {_agent.TaskAssignment.Task}");
         sb.AppendLine($"{_agent.Movement} dist {distMove}");
-        sb.AppendLine(_agent.Stuck.ToString());
+        sb.AppendLine(_agent.Stuck.Soft.ToString());
+        sb.AppendLine(_agent.Stuck.Hard.ToString());
         sb.AppendLine($"{_agent.Objective} dist {distObj}/{_agent.Objective.Location?.RadiusSqr}");
         sb.AppendLine("*** Generic ***");
         sb.AppendLine($"HasEnemy: {BotOwner.Memory.HaveEnemy} UnderFire: {BotOwner.Memory.IsUnderFire}");

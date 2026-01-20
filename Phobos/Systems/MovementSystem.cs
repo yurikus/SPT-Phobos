@@ -353,33 +353,33 @@ public class MovementSystem
 
     private class StuckRemediation(MovementSystem movementSystem, List<Player> humanPlayers)
     {
-        // Thresholds
-        private const float MaxMoveSpeed = 5f; // Maximum bot movement speed in m/s
-        private const float StuckThresholdMultiplier = 0.5f; // Bot moving at less than 50% expected speed is stuck
-        private const float VaultAttemptDelay = 1.5f;
-        private const float JumpAttemptDelay = 1.5f + VaultAttemptDelay;
-        private const float PathRetryDelay = 3f + JumpAttemptDelay;
-        private const float TeleportDelay = 3f + PathRetryDelay;
-        private const float FailedDelay = 3f + PathRetryDelay;
-
-        private static readonly LayerMask LayerMaskVisCheck = 0b0000_00000_0000_0001_1000_0000_0000;
-
-        private static readonly EBodyPartColliderType[] VisCheckBodyParts =
-        [
-            EBodyPartColliderType.HeadCommon,
-            EBodyPartColliderType.Pelvis,
-            EBodyPartColliderType.LeftForearm,
-            EBodyPartColliderType.RightForearm,
-            EBodyPartColliderType.LeftCalf,
-            EBodyPartColliderType.RightCalf
-        ];
+        private readonly SoftStuckRemediation _softRemediation = new(0.2f);
+        private readonly HardStuckRemediation _hardRemediation = new(movementSystem, humanPlayers, 0.2f);
 
         public void Update(Agent agent)
         {
             var stuck = agent.Stuck;
-
+            
             if (stuck.Pacing.Blocked())
                 return;
+            
+            _softRemediation.Update(agent);
+            _hardRemediation.Update(agent);
+        }
+    }
+    
+    private class SoftStuckRemediation(float staleThreshold)
+    {
+        // Thresholds
+        private const float SprintSpeed = 5f; // Maximum bot movement speed in m/s
+        private const float StuckThresholdMultiplier = 0.5f; // Bot moving at less than 50% expected speed is stuck
+        private const float VaultAttemptDelay = 1.5f;
+        private const float JumpAttemptDelay = 1.5f + VaultAttemptDelay;
+        private const float FailedDelay = 3f + JumpAttemptDelay;
+        
+        public void Update(Agent agent)
+        {
+            var stuck = agent.Stuck.Soft;
 
             // Update timing
             var deltaTime = Time.time - stuck.LastUpdate;
@@ -401,19 +401,19 @@ public class MovementSystem
             // Don't bother if we are basically stationary
             if (moveSpeed <= 0.01)
             {
-                ResetStuck(stuck);
+                stuck.Reset();
                 return;
             }
 
             // Discard measurements after long periods of dormancy 
-            if (deltaTime > 2f * stuck.Pacing.Interval)
+            if (deltaTime > staleThreshold)
             {
-                ResetStuck(stuck);
+                stuck.Reset();
                 return;
             }
 
             // Calculate expected movement distance based on current speed setting
-            var expectedSpeed = MaxMoveSpeed * moveSpeed;
+            var expectedSpeed = SprintSpeed * moveSpeed;
             var expectedDistance = expectedSpeed * deltaTime;
             var stuckThreshold = expectedDistance * StuckThresholdMultiplier;
 
@@ -425,51 +425,148 @@ public class MovementSystem
             var distanceMoved = moveVector.magnitude;
             if (distanceMoved > stuckThreshold)
             {
-                // Reset stuck state if we were stuck before
-                ResetStuck(stuck);
+                stuck.Reset();
                 return;
             }
 
             // Bot appears stuck - increment timer
             stuck.Timer += deltaTime;
 
-            switch (stuck.State)
+            switch (stuck.Status)
             {
                 // Apply remediation based on stuck duration
-                case StuckState.None when stuck.Timer >= VaultAttemptDelay:
+                case SoftStuckStatus.None when stuck.Timer >= VaultAttemptDelay:
                     DebugLog.Write($"{agent} is stuck, attempting to vault.");
-                    stuck.State = StuckState.Vaulting;
+                    stuck.Status = SoftStuckStatus.Vaulting;
                     agent.Player.MovementContext?.TryVaulting();
                     break;
-                case StuckState.Vaulting when stuck.Timer >= JumpAttemptDelay:
+                case SoftStuckStatus.Vaulting when stuck.Timer >= JumpAttemptDelay:
                     DebugLog.Write($"{agent} is stuck, attempting to jump.");
-                    stuck.State = StuckState.Jumping;
+                    stuck.Status = SoftStuckStatus.Jumping;
                     agent.Player.MovementContext?.TryJump();
                     break;
-                case StuckState.Jumping when stuck.Timer >= PathRetryDelay:
-                {
-                    DebugLog.Write($"{agent} is stuck, attempting to recalculate path.");
-                    stuck.State = StuckState.Retrying;
-                    movementSystem.MoveRetry(agent, agent.Movement.Target);
-                    break;
-                }
-                case StuckState.Retrying when stuck.Timer >= TeleportDelay:
-                    DebugLog.Write($"{agent} is stuck, attempting to teleport.");
-                    stuck.State = StuckState.Teleport;
-                    AttemptTeleport(agent);
-                    break;
-                case StuckState.Teleport when stuck.Timer >= FailedDelay:
+                case SoftStuckStatus.Jumping when stuck.Timer >= FailedDelay:
                     DebugLog.Write($"{agent} is stuck, giving up.");
-                    stuck.State = StuckState.Failed;
-                    ResetPath(agent, MovementStatus.Failed);
+                    stuck.Status = SoftStuckStatus.Failed;
                     break;
-                case StuckState.Failed:
-                    Debug.Log("Skipping failed state");
-                    break;
+                case SoftStuckStatus.Failed:
                 default:
-                    Debug.Log($"Unexpected bot stuck state: {stuck}");
                     break;
             }
+        }
+    }
+
+    
+    private class HardStuckRemediation(MovementSystem movementSystem, List<Player> humanPlayers, float staleThreshold)
+    {
+        private const float StuckRadiusSqr = 3f * 3f;
+        
+        private const float PathRetryDelay = 5f;
+        private const float TeleportDelay = 5f + PathRetryDelay;
+        private const float FailedDelay = 5f + TeleportDelay;
+
+        private static readonly LayerMask LayerMaskVisCheck = 0b0000_00000_0000_0001_1000_0000_0000;
+
+        private static readonly EBodyPartColliderType[] VisCheckBodyParts =
+        [
+            EBodyPartColliderType.HeadCommon,
+            EBodyPartColliderType.Pelvis,
+            EBodyPartColliderType.LeftForearm,
+            EBodyPartColliderType.RightForearm,
+            EBodyPartColliderType.LeftCalf,
+            EBodyPartColliderType.RightCalf
+        ];
+
+        public void Update(Agent agent)
+        {
+            // The logic is as follows:
+            // If the bot stays within a radius of its position 5 seconds ago for extended periods of time, we consider it stuck
+            // The radius size is modulated by the bots target velocity, to account for deliberate slow movement
+            var stuck = agent.Stuck.Hard;
+
+            stuck.PositionHistory.Update(agent.Position);
+            stuck.AverageSpeed.Update(agent.Player.MovementContext.CharacterMovementSpeed);
+
+            // Update timing
+            var deltaTime = Time.time - stuck.LastUpdate;
+            stuck.LastUpdate = Time.time;
+
+            // Discard measurements after long periods of dormancy 
+            if (deltaTime > staleThreshold)
+            {
+                Reset(stuck);
+                return;
+            }
+            
+            // Apply an asymmetric speed buffering:
+            // If the current speed is slower than the average speed, use the current speed to avoid overestimating the required distance.
+            // Otherwise, use the moving average to give the agent a chance to actually build distance.
+            var averageSpeed = stuck.AverageSpeed.Value;
+            var currentSpeed = agent.Player.MovementContext.CharacterMovementSpeed;
+            // NB: Movespeed is a number between 0-1
+            var moveSpeed = currentSpeed <= averageSpeed ? currentSpeed : averageSpeed;
+
+            // Don't bother if we are basically stationary
+            if (moveSpeed <= 0.01 && stuck.Status != HardStuckStatus.None)
+            {
+                Reset(stuck);
+                return;
+            }
+
+            // If the bot moved more than the radius * moveSpeed from it's oldest position, we assume it's not stuck and reset the state
+            var moveDistanceSqr = stuck.PositionHistory.GetDistanceSqr();
+            var stuckThresholdSqr = StuckRadiusSqr * moveSpeed; 
+            
+            // Reset the state if neccessary
+            if (moveDistanceSqr > stuckThresholdSqr)
+            {
+                Reset(stuck);
+                return;
+            }
+
+            // Bot appears stuck - increment timer
+            stuck.Timer += deltaTime;
+
+            switch (stuck.Status)
+            {
+                case HardStuckStatus.None when stuck.Timer >= PathRetryDelay:
+                    DebugLog.Write($"{agent} is hard stuck, attempting to recalculate path.");
+                    stuck.Status = HardStuckStatus.Retrying;
+                    movementSystem.MoveRetry(agent, agent.Movement.Target);
+                    break;
+                case HardStuckStatus.Retrying when stuck.Timer >= TeleportDelay:
+                    DebugLog.Write($"{agent} is hard stuck, attempting to teleport.");
+                    stuck.Status = HardStuckStatus.Teleport;
+                    AttemptTeleport(agent);
+                    break;
+                case HardStuckStatus.Teleport when stuck.Timer >= FailedDelay:
+                    DebugLog.Write($"{agent} is hard stuck, giving up.");
+                    stuck.Status = HardStuckStatus.Failed;
+                    ResetPath(agent, MovementStatus.Failed);
+                    break;
+                case HardStuckStatus.Failed:
+                    DebugLog.Write("Skipping failed state");
+                    break;
+                default:
+                    DebugLog.Write($"Unexpected bot stuck state: {stuck}");
+                    break;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void Reset(HardStuck stuck)
+        {
+            // If we weren't stuck, only reset the timer
+            if (stuck.Status == HardStuckStatus.None)
+            {
+                stuck.Timer = 0f;
+                return;
+            }
+            
+            stuck.AverageSpeed.Reset();
+            stuck.PositionHistory.Reset();
+            stuck.Status = HardStuckStatus.None;
+            stuck.Timer = 0f;
         }
 
         private void AttemptTeleport(Agent agent)
@@ -513,13 +610,6 @@ public class MovementSystem
             teleportPos.y += 0.25f;
             agent.Player.Teleport(teleportPos);
             DebugLog.Write($"{agent} teleporting to {teleportPos}");
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void ResetStuck(Stuck stuckDetection)
-        {
-            stuckDetection.Timer = 0f;
-            stuckDetection.State = StuckState.None;
         }
     }
 }
