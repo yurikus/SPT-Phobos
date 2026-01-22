@@ -297,16 +297,28 @@ public class MovementSystem
         {
             var door = currentVoxel.DoorLinks[i].Door;
 
-            var shouldOpen = door.enabled && door.Operatable && door.DoorState != EDoorState.Open &&
-                             (door.transform.position - agent.Position).sqrMagnitude < 9f;
+            if ((door.transform.position - agent.Position).sqrMagnitude > 9f)
+            {
+                continue;
+            }
 
-            if (!shouldOpen) continue;
-
-            door.Open();
             foundDoors = true;
+
+            if (!(door.InteractingPlayer == null && door.enabled && door.Operatable && door.DoorState != EDoorState.Open))
+            {
+                continue;
+            }
+
+            OpenDoor(agent, door);
         }
 
         return foundDoors;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void OpenDoor(Agent agent, Door door)
+    {
+        agent.Player.vmethod_1(door, new InteractionResult(EInteractionType.Open));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -359,15 +371,15 @@ public class MovementSystem
         public void Update(Agent agent)
         {
             var stuck = agent.Stuck;
-            
+
             if (stuck.Pacing.Blocked())
                 return;
-            
+
             _softRemediation.Update(agent);
             _hardRemediation.Update(agent);
         }
     }
-    
+
     private class SoftStuckRemediation(float staleThreshold)
     {
         // Thresholds
@@ -375,7 +387,7 @@ public class MovementSystem
         private const float VaultAttemptDelay = 1.5f;
         private const float JumpAttemptDelay = 1.5f + VaultAttemptDelay;
         private const float FailedDelay = 3f + JumpAttemptDelay;
-        
+
         public void Update(Agent agent)
         {
             var stuck = agent.Stuck.Soft;
@@ -453,11 +465,11 @@ public class MovementSystem
         }
     }
 
-    
+
     private class HardStuckRemediation(MovementSystem movementSystem, List<Player> humanPlayers, float staleThreshold)
     {
         private const float StuckRadiusSqr = 3f * 3f;
-        
+
         private const float PathRetryDelay = 5f;
         private const float TeleportDelay = 5f + PathRetryDelay;
         private const float FailedDelay = 5f + TeleportDelay;
@@ -494,7 +506,7 @@ public class MovementSystem
                 Reset(stuck);
                 return;
             }
-            
+
             // Apply an asymmetric speed buffering:
             // If the current speed is slower than the average speed, use the current speed to avoid overestimating the required distance.
             // Otherwise, use the moving average to give the agent a chance to actually build distance.
@@ -512,8 +524,8 @@ public class MovementSystem
 
             // If the bot moved more than the radius * moveSpeed from it's oldest position, we assume it's not stuck and reset the state
             var moveDistanceSqr = stuck.PositionHistory.GetDistanceSqr();
-            var stuckThresholdSqr = StuckRadiusSqr * moveSpeed; 
-            
+            var stuckThresholdSqr = StuckRadiusSqr * moveSpeed;
+
             // Reset the state if neccessary
             if (moveDistanceSqr > stuckThresholdSqr)
             {
@@ -556,7 +568,7 @@ public class MovementSystem
                 stuck.Timer = 0f;
                 return;
             }
-            
+
             stuck.AverageSpeed.Reset();
             stuck.PositionHistory.Reset();
             stuck.Status = HardStuckStatus.None;
