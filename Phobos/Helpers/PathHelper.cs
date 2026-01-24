@@ -141,8 +141,6 @@ public static class PathHelper
             currentIndex++;
         }
         
-        Log.Debug($"Max angle: {angleMax}");
-
         return angleMax;
     }
 }
