@@ -1,7 +1,5 @@
 ﻿# TODO:
 
-* Make sure door state is synchronized
-
 # Location Covers
 AICoversData.GetIndexes combined with AICoversData.GetVoxelesExtended should get us the voxels around a world pos.
 

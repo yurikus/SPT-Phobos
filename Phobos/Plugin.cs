@@ -80,6 +80,7 @@ public class Plugin : BaseUnityPlugin
         
         new ShrinkDoorNavMeshCarversPatch().Enable();
         
+        new BotMoverSoftTeleportLogPatch().Enable();
         new BotMoverHardTeleportLogPatch().Enable();
         new MovementContextIsAIPatch().Enable();
         new EnableVaultPatch().Enable();
@@ -89,6 +90,8 @@ public class Plugin : BaseUnityPlugin
         new BypassAssaultEnemyFarPatch().Enable();
         // High priority (79!) and causes bots to get stuck
         new BypassExfiltrationPatch().Enable();
+        // Causes the goons to get separated
+        new BypassPtrlBirdEyePatch().Enable();
 
         // Misc setup
         var brains = new List<string>()

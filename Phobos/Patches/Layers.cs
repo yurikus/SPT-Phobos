@@ -37,3 +37,20 @@ public class BypassExfiltrationPatch : ModulePatch
         return false;
     }
 }
+
+// Bypass the "Exfiltration" layer
+public class BypassPtrlBirdEyePatch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return AccessTools.Method(typeof(GClass79), nameof(GClass79.ShallUseNow));
+    }
+
+    // ReSharper disable once InconsistentNaming
+    [PatchPrefix]
+    public static bool Patch(ref bool __result)
+    {
+        __result = false;
+        return false;
+    }
+}

@@ -77,7 +77,7 @@ public class LocationGatherer(float cellSize, BotsController botsController)
         var radiusSqr = radius * radius;
         var name = $"Synthetic_{_idCounter}";
         const LocationCategory category = LocationCategory.Synthetic;
-        
+
         var coverData = CollectBuiltinCoverData(position, radius);
         Log.Debug($"Location {category}:{name} has {coverData.Doors.Count} doors and {coverData.CoverPoints.Count} cover points in proximity");
         var location = new Location(_idCounter, category, name, position, radiusSqr, coverData.Doors, coverData.CoverPoints);
@@ -91,15 +91,15 @@ public class LocationGatherer(float cellSize, BotsController botsController)
         {
             LocationCategory.ContainerLoot => 10f,
             LocationCategory.LooseLoot => 10f,
-            LocationCategory.Quest => Mathf.Clamp(cellSize / 2f, 10f, 25f),
-            LocationCategory.Synthetic => Mathf.Clamp(cellSize / 2f, 10f, 25f),
-            LocationCategory.Exfil => Mathf.Clamp(cellSize / 2f, 10f, 25f),
+            LocationCategory.Quest => Mathf.Clamp(cellSize / 2f, 10f, 15f),
+            LocationCategory.Synthetic => Mathf.Clamp(cellSize / 2f, 10f, 15f),
+            LocationCategory.Exfil => Mathf.Clamp(cellSize / 2f, 10f, 15f),
             _ => 10f
         };
         var radiusSqr = radius * radius;
 
         var coverData = CollectBuiltinCoverData(position, radius);
-        
+
         Log.Debug($"Location {category}:{name} has {coverData.Doors.Count} doors and {coverData.CoverPoints.Count} cover points in proximity");
 
         var location = new Location(_idCounter, category, name, position, radiusSqr, coverData.Doors, coverData.CoverPoints);
@@ -170,13 +170,35 @@ public class LocationGatherer(float cellSize, BotsController botsController)
                 coverPoints.Add(coverPoint);
             }
         }
-        
+
         return new CoverData(doors.ToList(), coverPoints.ToList());
     }
-    
-    private void CollectSyntheticCoverData(CoverData coverData, Vector3 position, float radius)
+
+    private void CollectSyntheticCoverData(List<CoverPoint> coverPoints, Vector3 locationPosition, float radius, int gridSize = 5)
     {
-        
+        // The total grid width should be 0.75 * radius to ensure the points are within the objective zone
+        var gridWidth = radius * 0.75f;
+        var offset = gridWidth / 2f;
+        var spacing = gridWidth / (gridSize - 1);
+        var navMeshSampleEps = gridWidth / gridSize;
+
+        for (var z = 0; z < gridSize; z++)
+        {
+            for (var x = 0; x < gridSize; x++)
+            {
+                var xPos = locationPosition.x - offset + x * spacing;
+                var zPos = locationPosition.z - offset + z * spacing;
+
+                if (
+                    !NavMesh.SamplePosition(new Vector3(xPos, locationPosition.y, zPos), out var target, navMeshSampleEps, NavMesh.AllAreas)
+                ) continue;
+
+                // TODO: Trace a path from the location to the cover. If the length is less than 0.75 * radius, we are ok 
+
+                var coverPoint = new CoverPoint(target.position, Vector3.zero, CoverType.Wall, CoverLevel.Lay);
+                coverPoints.Add(coverPoint);
+            }
+        }
     }
 
     private readonly struct CoverData(List<Door> doors, List<CoverPoint> coverPoints)

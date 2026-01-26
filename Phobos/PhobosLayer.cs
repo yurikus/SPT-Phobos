@@ -64,20 +64,27 @@ public class PhobosLayer : CustomLayer
 
     private void OnLayerChanged(AICoreLayerClass<BotLogicDecision> layer)
     {
+        var mover = _agent.Bot.Mover;
+        
         if (layer.Name() == LayerName)
         {
             // Stop the canned bot mover
             Log.Debug($"{_agent} stopping builtin bot mover");
-            _agent.Bot.Mover.Stop();
+            mover.Stop();
             _agent.IsActive = true;
         }
         else
         {
             if (_agent.IsActive)
             {
-                // Final insurance that the bot is set to the navmwesh before we hand over the brain
                 Log.Debug($"{_agent} setting player to navmesh");
-                _agent.Bot.Mover.SetPlayerToNavMesh(_agent.Position);
+                // Ensure that all the move state variables reflect our current position and not some far away stale value
+                mover.LastGoodCastPoint = mover.PrevSuccessLinkedFrom_1 = mover.PrevLinkPos = mover.PositionOnWayInner = _agent.Position;
+                mover.LastGoodCastPointTime = Time.time;
+                // Prevents the mover from re-issuing a move command to it's last target in SetPlayerToNavMesh
+                mover.PrevPosLinkedTime_1 = 0f;
+                // Final insurance that the bot is set to the navmesh before we hand over the brain
+                mover.SetPlayerToNavMesh(_agent.Position);
                 _agent.IsActive = false;
             }
         }
@@ -97,8 +104,10 @@ public class PhobosLayer : CustomLayer
 
     public override bool IsActive()
     {
-        var isHealing = BotOwner.Medecine.Using || BotOwner.Medecine.SurgicalKit.HaveWork || BotOwner.Medecine.FirstAid.Have2Do;
-        var isInCombat = BotOwner.Memory.IsUnderFire || BotOwner.Memory.HaveEnemy || Time.time - BotOwner.Memory.LastEnemyTimeSeen < 15f;
+        var lastEnemyTimeSeen = Time.time - BotOwner.Memory.LastEnemyTimeSeen;
+        // If the last enemy seen was more than 60 seconds ago, force isHealing to false
+        var isHealing = (BotOwner.Medecine.Using || BotOwner.Medecine.SurgicalKit.HaveWork || BotOwner.Medecine.FirstAid.Have2Do) && lastEnemyTimeSeen < 60f;
+        var isInCombat = BotOwner.Memory.IsUnderFire || BotOwner.Memory.HaveEnemy || lastEnemyTimeSeen < 15f;
         return !isHealing && !isInCombat;
     }
 
